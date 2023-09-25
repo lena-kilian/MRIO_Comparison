@@ -1,0 +1,24 @@
+*__pycache__*
+*.DS_Store
+
+# Ignore everything from data and outputs folders
+data/*
+outputs/*
+release_2022/*
+model_inputs/*
+model inputs/*
+
+*.p
+*.xslx
+*.xls
+*.csv
+
+# Except gitignore, gitkeep and python files in 'code' and 'old_code_to_be_fixed' folders
+
+!.gitkeep
+!.gitignore
+!code/*.py
+!old_code_to_be_fixed/*.py
+!old_code_to_be_fixed/*.pyc
+
+# Specific files to ignore
