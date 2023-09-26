@@ -9,16 +9,40 @@ Created on Mon Sep 25 14:31:51 2023
 
 import pymrio
 import os
+import pandas as pd
+import numpy as np
+df = pd.DataFrame
+from sys import platform
 
 
-mrio_data_path = 'O:/geolki/data/raw/MRIOs/'
+# set working directory
+# make different path depending on operating system
+if platform[:3] == 'win':
+    wd = 'O://'
+else:
+    wd = r'/Volumes/a72/' 
 
-db = ['Exiobase3', 'OECD']
+# define filepaths
+inputs_filepath = wd + 'UKMRIO_Data/data/model_inputs/'
+mrio_data_path = wd + 'geolki/data/raw/MRIOs/'
 
-for item in db:
-    newpath = mrio_data_path + item
-    if not os.path.exists(newpath):
-        os.makedirs(newpath)
-        
-exio = pymrio.download_exiobase3(storage_folder=mrio_data_path + 'Exiobase3/', system="pxp", years=[2011])
-oecd = pymrio.download_oecd(storage_folder=mrio_data_path + 'OECD/', version="v2016", years=[2003, 2008])
+db = ['Exiobase3', 'OECD', 'Figaro', 'Gloria', 'WIOD', 'EORA']
+
+
+# define filepaths
+
+##############
+## EXIOBASE ##
+##############
+
+exioyrs = range(1995, 2021)
+
+for year in exioyrs:
+                  
+    filepath = exiobase_filepath + "3.8.2/MRSUT_{}/".format(str(year))
+            
+    exio_s = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0,1], index_col = [0,1])
+    exio_u = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0,1], index_col = [0,1])
+    exio_y = pd.read_csv(filepath + 'final_demand.csv', sep='\t', header = [0,1], index_col = [0,1])
+    exio_v = pd.read_csv(filepath + 'value_added.csv', sep='\t', header = [0,1], index_col = 0)
+    exio_v = df.sum(exio_v.iloc[0:12,:], 0)
