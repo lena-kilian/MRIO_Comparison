@@ -39,7 +39,7 @@ exioyrs = range(1995, 2021)
 
 for year in exioyrs:
                   
-    filepath = exiobase_filepath + "3.8.2/MRSUT_{}/".format(str(year))
+    filepath = wd + "UKMRIO_Data/EXIOBASE/3.8.2/MRSUT_{}/".format(str(year))
             
     exio_s = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0,1], index_col = [0,1])
     exio_u = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0,1], index_col = [0,1])
