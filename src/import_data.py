@@ -7,6 +7,8 @@ Created on Mon Sep 25 14:31:51 2023
 
 # use pymrio https://pymrio.readthedocs.io/en/latest/notebooks/autodownload.html
 
+# conda install -c conda-forge pymrio
+
 import pymrio
 import os
 
