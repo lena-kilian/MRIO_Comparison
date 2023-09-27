@@ -10,7 +10,6 @@ Created on Mon Sep 25 14:31:51 2023
 # conda install -c conda-forge pymrio
 
 import pymrio
-import os
 import pandas as pd
 import numpy as np
 from sys import platform
@@ -93,3 +92,26 @@ for year in years:
     oecd_data[year]['Z'] = icio.iloc[:cut_off, :cut_off]
     oecd_data[year]['Y'] = icio.iloc[:cut_off, cut_off:]
     oecd_data[year]['v'] = icio.loc['VALU':'VALU', :].iloc[:, :cut_off]
+    
+    
+############
+## GLORIA ##
+############
+
+gloria_data = {}
+
+##########
+## EORA ##
+##########
+
+eora_data = {}
+
+
+##########
+## WIOD ##
+##########
+
+wiod_data = {}
+
+
+
