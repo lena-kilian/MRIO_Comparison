@@ -10,6 +10,7 @@ Created on Mon Sep 25 14:31:51 2023
 # conda install -c conda-forge pymrio
 
 import pymrio
+import os
 import pandas as pd
 import numpy as np
 from sys import platform
@@ -26,7 +27,12 @@ else:
 data_filepath = wd + 'UKMRIO_Data/data/'
 mrio_data_path = wd + 'geolki/data/raw/MRIOs/'
 
-db = ['Exiobase3', 'OECD', 'Figaro', 'Gloria', 'WIOD', 'EORA']
+db = ['Exiobase', 'OECD', 'Figaro', 'Gloria', 'WIOD', 'EORA']
+
+for item in db:
+     newpath = mrio_data_path + item
+     if not os.path.exists(newpath):
+         os.makedirs(newpath)
 
 years = range(2010, 2019)
 
@@ -99,6 +105,9 @@ for year in years:
 ############
 
 gloria_data = {}
+
+gloria_folder = mrio_data_path + 'Gloria'
+gloria_log_2014 = pymrio.download_gloria(storage_folder=gloria_folder)
 
 ##########
 ## EORA ##
