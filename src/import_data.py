@@ -12,8 +12,9 @@ Created on Mon Sep 25 14:31:51 2023
 import pymrio
 import os
 import pandas as pd
-import numpy as np
+import zipfile
 from sys import platform
+import os
 
 
 # set working directory
@@ -27,10 +28,10 @@ else:
 data_filepath = wd + 'UKMRIO_Data/data/'
 mrio_data_path = wd + 'geolki/data/raw/MRIOs/'
 
-db = ['Exiobase', 'OECD', 'Figaro', 'Gloria', 'WIOD', 'EORA']
+db = ['Exiobase', 'ICIO', 'Figaro', 'Gloria', 'WIOD', 'EORA']
 
 for item in db:
-     newpath = mrio_data_path + item
+     newpath = wd + 'UKMRIO_Data/' + item
      if not os.path.exists(newpath):
          os.makedirs(newpath)
 
@@ -104,10 +105,30 @@ for year in years:
 ## GLORIA ##
 ############
 
-gloria_data = {}
+gloria_folder = wd + 'UKMRIO_Data/Gloria'
 
-gloria_folder = mrio_data_path + 'Gloria'
-gloria_log_2014 = pymrio.download_gloria(storage_folder=gloria_folder)
+os.chdir(gloria_folder) # change directory from working dir to dir with files
+
+for year in years:
+    gloria_log = pymrio.download_gloria(storage_folder=gloria_folder, year=year)
+    
+    for item in os.listdir(gloria_folder): # loop through items in dir
+        if item.endswith('.zip'): # check for ".zip" extension
+            file_name = gloria_folder + '/' + os.path.abspath(item).split('\\')[-1] # get full path of files
+            with zipfile.ZipFile(file_name) as file: # create zipfile object temporarily
+                file.extractall(gloria_folder) # extract file to dir
+                file.close() # close file
+            
+            os.remove(file_name) # delete zipped file
+        
+filenames = os.listdir(gloria_folder) # list files so they can be renamed
+for filename in filenames:
+    if filename.split('.')[-1] == 'csv':
+        print(filename)
+        new_name = filename.split('-')[0][-1] + '_' + filename.split('-')[1].split('_')[1] + '.csv'
+        os.rename(gloria_folder + '/' + filename, gloria_folder + '/' + new_name)
+
+
 
 ##########
 ## EORA ##
