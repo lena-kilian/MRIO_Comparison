@@ -39,9 +39,12 @@ years = range(2010, 2019)
 
 currency_usd_eur = pd.read_excel(wd + 'UKMRIO_Data/ICIO/ReadMe_ICIO2021_CSV.xlsx',  sheet_name='NCU-USD', index_col=[1], header=0).loc['AUT', :][years].astype(float) # conversion rates from ICIO table
 
-##############
-## EXIOBASE ##
-##############
+##################
+## IMPOORT DATA ##
+##################
+
+
+# EXIOBASE
 
 exio_data = {}
 
@@ -58,9 +61,7 @@ for year in years:
     exio_data[year]['v'] = pd.DataFrame(exio_data[year]['v'].iloc[0:12,:].sum(0))
 
 
-############
-## FIGARO ##
-############
+# FIGARO 
 
 figaro_data = {}
 
@@ -82,9 +83,7 @@ for year in years:
     figaro_data[year]['Y'] = use_temp.loc[figaro_data[year]['S'].index, :].drop(figaro_data[year]['S'].columns.tolist(), axis=1)
 
 
-##########
-## OECD ##
-##########
+# OECD 
 
 oecd_data = {}
 
@@ -101,9 +100,7 @@ for year in years:
     oecd_data[year]['v'] = icio.loc['VALU':'VALU', :].iloc[:, :cut_off]
     
     
-############
-## GLORIA ##
-############
+# GLORIA 
 
 gloria_folder = wd + 'UKMRIO_Data/Gloria'
 
@@ -130,16 +127,7 @@ for filename in filenames:
 
 
 
-##########
-## EORA ##
-##########
-
-eora_data = {}
-
-
-##########
-## WIOD ##
-##########
+# WIOD
 
 wiod_data = {}
 
