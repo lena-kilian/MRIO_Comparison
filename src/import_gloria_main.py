@@ -11,12 +11,8 @@ Created on Mon Sep 25 14:31:51 2023
 
 import pymrio
 import os
-import pandas as pd
 import zipfile
 from sys import platform
-import os
-import re
-import requests
 
 
 # set working directory
@@ -30,10 +26,13 @@ else:
 data_filepath = wd + 'UKMRIO_Data/data/'
 mrio_data_path = wd + 'geolki/data/raw/MRIOs/'
 
-db = ['Exiobase', 'ICIO', 'Figaro', 'Gloria', 'WIOD', 'EORA']
+db = ['Gloria']
 
 for item in db:
      newpath = wd + 'UKMRIO_Data/' + item
+     if not os.path.exists(newpath):
+         os.makedirs(newpath)
+     newpath = wd + 'UKMRIO_Data/' + item + '/Main'
      if not os.path.exists(newpath):
          os.makedirs(newpath)
 
@@ -43,7 +42,7 @@ years = range(2010, 2019)
 ## GLORIA ##
 ############
 
-gloria_folder = wd + 'UKMRIO_Data/Gloria'
+gloria_folder = wd + 'UKMRIO_Data/Gloria/Main'
 
 # Global MRIO
 for year in years:
@@ -58,18 +57,6 @@ for year in years:
             
             os.remove(file_name) # delete zipped file
         
-##########
-## EORA ##
-##########
-
-eora_data = {}
-
-
-##########
-## WIOD ##
-##########
-
-wiod_data = {}
 
 
 
