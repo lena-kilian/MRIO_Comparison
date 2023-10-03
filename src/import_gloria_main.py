@@ -42,9 +42,10 @@ years = range(2010, 2019)
 ## GLORIA ##
 ############
 
+# Global MRIO
+
 gloria_folder = wd + 'UKMRIO_Data/Gloria/Main'
 
-# Global MRIO
 for year in years:
     gloria_log = pymrio.download_gloria(storage_folder=gloria_folder, year=year, overwrite_existing=True)
     
@@ -58,3 +59,24 @@ for year in years:
             
             zip_object.close() # close file
             os.remove(zip_name) # delete zipped file
+            
+# Satellite Account
+
+gloria_folder = wd + 'UKMRIO_Data/Gloria/Satellite_Accounts'
+zip_list = os.listdir(gloria_folder)
+
+for item in zip_list: # loop through items in dir
+    if item.endswith('.zip'): # check for ".zip" extension
+        zip_object = zipfile.ZipFile(gloria_folder + '/' + item)
+        zip_name = gloria_folder + '/' + os.path.abspath(item).split('\\')[-1] # get full path of files
+        contains = False
+        for year in years:
+            if str(year) in item:
+                contains = True
+            else:
+                pass
+        if contains == True:
+            zip_object.extractall(gloria_folder) # extract file to dir
+        
+        zip_object.close() # close file
+        os.remove(zip_name) # delete zipped file

@@ -14,9 +14,9 @@ import os
 import pandas as pd
 import zipfile
 from sys import platform
-import os
 import numpy as np
 import calculate_emissions_functions as cef
+import pickle
 
 
 # set working directory
@@ -29,19 +29,16 @@ else:
 # define filepaths
 data_filepath = wd + 'UKMRIO_Data/data/'
 mrio_data_path = wd + 'geolki/data/raw/MRIOs/'
+outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
-db = ['Exiobase', 'ICIO', 'Figaro', 'Gloria', 'WIOD', 'EORA']
-
-for item in db:
-     newpath = wd + 'UKMRIO_Data/' + item
-     if not os.path.exists(newpath):
-         os.makedirs(newpath)
 
 years = range(2010, 2019)
 
 currency_usd_eur = pd.read_excel(wd + 'UKMRIO_Data/ICIO/ReadMe_ICIO2021_CSV.xlsx', sheet_name='NCU-USD', index_col=[1], header=0).loc['AUT', :][years].astype(float) # conversion rates from ICIO table
 
 co2_props = pd.read_excel(wd + 'UKMRIO_Data/data/processed/uk energy/UKenergy2023.xlsx', sheet_name='co2_props', header = 0, index_col=0)
+
+co2_direct = pd.read_excel(outputs_filepath + 'uk_co2_direct.xlsx',sheet_name=None, index_col=0)
 
 ##################
 ## IMPOORT DATA ##
@@ -63,7 +60,51 @@ for year in [2018]:
     exio_data[year]['Y'] = pd.read_csv(filepath + 'final_demand.csv', sep='\t', header = [0, 1], index_col = [0, 1])
     exio_data[year]['v'] = pd.read_csv(filepath + 'value_added.csv', sep='\t', header = [0, 1], index_col = 0)
     exio_data[year]['v'] = pd.DataFrame(exio_data[year]['v'].iloc[0:12, :].sum(0))
+    exio_data[year]['F'] = pd.read_csv(filepath + 'F.txt')
     
+exio_stressor = {}
+
+
+concs_dict = pd.read_excel(os.path.join(inputs_filepath, 'ONS_to_COICOP_LCF_concs_old_v109.xlsx'), sheet_name=None, header = (0), index_col=0)
+
+Y2 = lcf.convert43to41(Y, concs_dict, allyears)
+Y=Y2
+
+total_Yhh_109 = dm.make_Yhh_109_34(Y, years, meta)
+
+coicop_exp_tot = lcf.make_totals_2023(hhspenddata, years)
+coicop_exp_tot2 = lcf.convert_exp_tot_sizes(coicop_exp_tot, concs_dict, years, '456_to_109')
+coicop_exp_tot3 = lcf.make_balanced_totals_2023(coicop_exp_tot2, total_Yhh_109, concs_dict, years) # cannot multiply because it is 109 instead of 112 columns
+
+yhh_wide = lcf.make_y_hh_109(Y, coicop_exp_tot3, years, concs_dict, meta)
+    
+newY = lcf.make_new_Y_109(Y, yhh_wide, years)
+
+(io_deflators, cc_deflators) = uk.get_deflator_data_2023(deflator_filepath)
+
+hhspenddata2 = lcf.convert_hhspend_sizes(hhspenddata, concs_dict, years, '456_to_109')
+
+# import region population data
+regions = ['North East', 'North West', 'Yorkshire and The Humber', 'East Midlands', 'West Midlands', 'East', 'London', 'South East', 'South West', 'Scotland', 'Wales']
+
+regoacsyr = pickle.load(open(inputs_filepath + 'regoacsyr.p', 'rb'))
+
+# import region population data
+regpophholdsyr = {}
+for yr in years:
+    reglaspend = {}
+    regpophholds = {}
+    for r in regions:
+        ladpophholds = regoacsyr[yr][r].groupby(['LAD_code']).sum()
+        regpophholds[r] = ladpophholds
+    regpophholdsyr[yr] = regpophholds
+
+y_regions = lcf.make_y_regions_2023(wd, hhspenddata2, regions, regpophholdsyr, newY, years) # need to define regions and regpophholdsyr
+
+(S_d, U_d, Y_d, newY_d, y_regions_d) = uk.deflate_io_regions(S, U, Y, newY, y_regions, allyears, years, io_deflators, meta)
+
+v = uk.make_v(U_d, Y_d, allyears, meta)
+
 
 year = 2018
 S = exio_data[year]['S']; U = exio_data[year]['U']; v = exio_data[year]['v']; Y = exio_data[year]['Y']
