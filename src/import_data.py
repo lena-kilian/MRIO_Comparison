@@ -37,7 +37,7 @@ for item in db:
      if not os.path.exists(newpath):
          os.makedirs(newpath)
 
-years = range(2010, 2019)
+years = range(2015, 2019)
     
 #############
 ## GLORIA ##

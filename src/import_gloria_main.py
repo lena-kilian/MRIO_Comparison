@@ -50,13 +50,11 @@ for year in years:
     
     for item in os.listdir(gloria_folder): # loop through items in dir
         if item.endswith('.zip'): # check for ".zip" extension
-            file_name = gloria_folder + '/' + os.path.abspath(item).split('\\')[-1] # get full path of files
-            with zipfile.ZipFile(file_name) as file: # create zipfile object temporarily
-                file.extractall(gloria_folder) # extract file to dir
-                file.close() # close file
+            zip_name = gloria_folder + '/' + os.path.abspath(item).split('\\')[-1] # get full path of files
+            zip_object = zipfile.ZipFile(gloria_folder + '/' + item)
+            for file in zip_object.namelist():
+                if 'Markup001' in file: # only extract and keep 001 files (basic prices)
+                    zip_object.extract(file, gloria_folder) # extract file to dir
             
-            os.remove(file_name) # delete zipped file
-        
-
-
-
+            zip_object.close() # close file
+            os.remove(zip_name) # delete zipped file
