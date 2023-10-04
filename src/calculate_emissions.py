@@ -9,10 +9,7 @@ Created on Mon Sep 25 14:31:51 2023
 
 # conda activate mrio
 
-import pymrio
-import os
 import pandas as pd
-import zipfile
 from sys import platform
 import calculate_emissions_functions as cef
 import itertools
@@ -29,14 +26,7 @@ else:
 data_filepath = wd + 'UKMRIO_Data/data/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
-
 years = range(2010, 2019)
-
-currency_usd_eur = pd.read_excel(wd + 'UKMRIO_Data/ICIO/ReadMe_ICIO2021_CSV.xlsx', sheet_name='NCU-USD', index_col=[1], header=0).loc['AUT', :][years].astype(float) # conversion rates from ICIO table
-
-co2_props = pd.read_excel(wd + 'UKMRIO_Data/data/processed/uk energy/UKenergy2023.xlsx', sheet_name='co2_props', header = 0, index_col=0)
-
-co2_direct = pd.read_excel(outputs_filepath + 'uk_co2_direct.xlsx',sheet_name=None, index_col=0)
 
 ##############
 ## EXIOBASE ##
@@ -64,31 +54,25 @@ for year in years:
 # check if UK result makes sense    
 check_uk_exio = {}
 for year in years:
-    check_uk_exio[year] = co2_exio[year]['GB'].sum(0)
+    check_uk_exio[year] = co2_exio[year]['GB'].sum(0) / 1000000000
       
 ############
 ## Figaro ##
 ############
 
-figaro_data = {}
+co2_figaro = {}
 
 for year in years:
+    url = ('https://ec.europa.eu/eurostat/documents/51957/14504006/CO2_footprints_' + str(year) + 
+           '.csv/22bc76fb-1860-2313-5af6-691667ba0b03?t=1671543343180')
+    co2_figaro[year] = pd.read_csv(url).set_index(['ref_area', 'industry', 'counterpart_area', 'sto'])[['obs_value']]\
+        .unstack(['counterpart_area', 'sto']).fillna(0).droplevel(axis=1, level=0)
     
-    figaro_data[year] = {}
-
-    figaro_data[year]['S'] = pd.read_csv(wd + 'UKMRIO_Data/Figaro/matrix_eu-ic-supply_' + str(year) + '.csv', index_col=0)
-    use_temp = pd.read_csv(wd + 'UKMRIO_Data/Figaro/matrix_eu-ic-use_' + str(year) + '.csv', index_col=0)
+# check if UK result makes sense    
+check_uk_figaro = {}
+for year in years:
+    check_uk_figaro[year] = co2_figaro[year]['GB'].sum(0) / 1000
     
-    figaro_data[year]['S'].columns = [x.replace('L68', 'L').replace('_CPA', '') for x in figaro_data[year]['S'].columns]
-    figaro_data[year]['S'].index = [x.replace('L68', 'L').replace('_CPA', '') for x in figaro_data[year]['S'].index]
-    use_temp.columns = [x.replace('L68', 'L').replace('_CPA', '') for x in use_temp.columns]
-    use_temp.index = [x.replace('L68', 'L').replace('_CPA', '') for x in use_temp.index]
-    
-    figaro_data[year]['U'] = use_temp.loc[figaro_data[year]['S'].index, figaro_data[year]['S'].columns]
-
-    figaro_data[year]['Y'] = use_temp.loc[figaro_data[year]['S'].index, :].drop(figaro_data[year]['S'].columns.tolist(), axis=1)
-
-
 ##########
 ## OECD ##
 ##########
@@ -125,7 +109,7 @@ for year in years:
     oecd_data[year]['Z'] = icio.loc[oecd_data[year]['co2'].index.tolist(), oecd_data[year]['co2'].index.tolist()]
     oecd_data[year]['Y'] = icio.loc[oecd_data[year]['co2'].index.tolist(), fd]
 
-# calculate exio footprint
+# calculate oecd footprint
 co2_oecd = {}
 for year in years:
     Z = oecd_data[year]['Z']; Y = oecd_data[year]['Y']; stressor = oecd_data[year]['co2']
@@ -138,40 +122,59 @@ for year in years:
 # check if UK result makes sense    
 check_uk_oecd = {}
 for year in years:
-    check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0)
+    check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0) 
 
 ############
 ## Gloria ##
 ############
 
-gloria_folder = wd + 'UKMRIO_Data/Gloria'
+gloria_data = {}
 
-os.chdir(gloria_folder) # change directory from working dir to dir with files
+readme = wd + 'UKMRIO_Data/Gloria/GLORIA_ReadMe_057.xlsx'
+labels = pd.read_excel(readme, sheet_name=None)
 
-for year in years:
-    gloria_log = pymrio.download_gloria(storage_folder=gloria_folder, year=year, overwrite_existing=True)
+t_cats = labels['Sequential region-sector labels']['Sequential_regionSector_labels'].tolist()
+z_idx = pd.MultiIndex.from_arrays([[x.split('(')[1].split(')')[0] for x in t_cats],
+                                   [x.split(') ')[1] for x in t_cats]])
+
+fd_cats = labels['Sequential region-sector labels']['Sequential_finalDemand_labels'].dropna(how='all', axis=0).tolist()
+y_cols = pd.MultiIndex.from_arrays([[x.split('(')[1].split(')')[0] for x in fd_cats],
+                                    [x.split(') ')[1] for x in fd_cats]])
+
+sat_rows = labels['Satellites']['Sat_indicator']
+
+stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
     
-    for item in os.listdir(gloria_folder): # loop through items in dir
-        if item.endswith('.zip'): # check for ".zip" extension
-            file_name = gloria_folder + '/' + os.path.abspath(item).split('\\')[-1] # get full path of files
-            with zipfile.ZipFile(file_name) as file: # create zipfile object temporarily
-                file.extractall(gloria_folder) # extract file to dir
-                file.close() # close file
-            
-            os.remove(file_name) # delete zipped file
-        
-filenames = os.listdir(gloria_folder) # list files so they can be renamed
-for filename in filenames:
-    if filename.split('.')[-1] == 'csv':
-        print(filename)
-        new_name = filename.split('-')[0][-1] + '_' + filename.split('-')[1].split('_')[1] + '.csv'
-        os.rename(gloria_folder + '/' + filename, gloria_folder + '/' + new_name)
-
-
-
-# WIOD
-
-wiod_data = {}
-
-
-
+for year in years:
+    
+    gloria_data[year] = {}
+    
+    z_filepath = (wd + 'UKMRIO_Data/Gloria/Main/20230315_120secMother_AllCountries_002_T-Results_' + str(year) + '_057_Markup001(full).csv') 
+    y_filepath = (wd + 'UKMRIO_Data/Gloria/Main/20230315_120secMother_AllCountries_002_Y-Results_' + str(year) + '_057_Markup001(full).csv') 
+    co2_filepath = (wd + 'UKMRIO_Data/Gloria/Satellite_Accounts/20230727_120secMother_AllCountries_002_TQ-Results_' + str(year) + '_057_Markup001(full).csv') 
+    
+    gloria_data[year]['Z'] = pd.read_csv(z_filepath, header=None, index_col=None)
+    gloria_data[year]['Z'].index = z_idx; gloria_data[year]['Z'].columns = z_idx
+    
+    gloria_data[year]['Y'] = pd.read_csv(y_filepath, header=None, index_col=None)
+    gloria_data[year]['Y'].index = z_idx; gloria_data[year]['Y'].columns = y_cols
+    
+    gloria_data[year]['co2'] = pd.read_csv(co2_filepath, header=None, index_col=None)
+    gloria_data[year]['co2'].index = sat_rows; gloria_data[year]['co2'].columns = z_idx
+    gloria_data[year]['co2'] = gloria_data[year]['co2'][year].loc[stressor_cat,:]
+ 
+# calculate gloria footprint
+co2_gloria = {}
+for year in years:
+    Z = gloria_data[year]['Z']; Y = gloria_data[year]['Y']; stressor = gloria_data[year]['co2']
+    co2_gloria[year] = cef.indirect_footprint(Z, Y, stressor)
+    co2_gloria[year].index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in co2_gloria[year].index], 
+                                                       [x.split('_')[1] for x in co2_oecd[year].index]])
+    co2_oecd[year].columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in co2_oecd[year].columns], 
+                                                       [x.split('_')[1] for x in co2_oecd[year].columns]])
+     
+# check if UK result makes sense    
+check_uk_oecd = {}
+for year in years:
+    check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0)   
+    
