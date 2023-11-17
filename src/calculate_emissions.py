@@ -133,7 +133,6 @@ for year in years:
 check_uk_oecd = {}
 for year in years:
     check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0) 
-    
     print(year)
 
 ############
@@ -174,6 +173,8 @@ for year in years:
     gloria_data[year]['co2'] = pd.read_csv(co2_filepath, header=None, index_col=None)
     gloria_data[year]['co2'].index = sat_rows; gloria_data[year]['co2'].columns = z_idx
     gloria_data[year]['co2'] = gloria_data[year]['co2'][year].loc[stressor_cat,:]
+    
+    print(year)
  
 # calculate gloria footprint
 co2_gloria = {}
@@ -184,9 +185,12 @@ for year in years:
                                                        [x.split('_')[1] for x in co2_oecd[year].index]])
     co2_oecd[year].columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in co2_oecd[year].columns], 
                                                        [x.split('_')[1] for x in co2_oecd[year].columns]])
+    
+    print(year)
      
 # check if UK result makes sense    
 check_uk_oecd = {}
 for year in years:
-    check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0)   
+    check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0)
+    print(year)
     
