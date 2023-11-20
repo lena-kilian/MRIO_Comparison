@@ -26,8 +26,7 @@ else:
 mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
-#years = range(2010, 2019)
-years = [2018]
+years = range(2010, 2019)
 
 ##############
 ## EXIOBASE ##
@@ -44,7 +43,7 @@ for year in years:
     exio_data[year]['Z'] = pd.read_csv(filepath + 'Z.txt', sep='\t', header = [0, 1], index_col = [0, 1])
     exio_data[year]['Y'] = pd.read_csv(filepath + 'Y.txt', sep='\t', header = [0, 1], index_col = [0, 1])
     exio_data[year]['co2'] = pd.DataFrame(pd.read_csv(filepath + 'satellite/F.txt', sep='\t', index_col=0, header=[0, 1])\
-        .loc['CO2 - combustion - air', :])
+        .loc['Carbon dioxide (CO2) IPCC categories 1 to 4 and 6 to 7', :])
     print(year)
 
 # calculate exio footprint
@@ -59,6 +58,8 @@ check_uk_exio = {}
 for year in years:
     check_uk_exio[year] = co2_exio[year]['GB'].sum(0) / 1000000000
     print(year)
+    
+print('Exio done')
       
 ############
 ## Figaro ##
@@ -78,6 +79,8 @@ check_uk_figaro = {}
 for year in years:
     check_uk_figaro[year] = co2_figaro[year]['GB'].sum(0) / 1000
     print(year)
+    
+print('Figaro done')
     
 ##########
 ## OECD ##
@@ -134,63 +137,27 @@ check_uk_oecd = {}
 for year in years:
     check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0) 
     print(year)
+    
+print('ICIO done')
 
 ############
 ## Gloria ##
 ############
+"""
+# Done:
 
-gloria_data = {}
-
-readme = mrio_filepath + 'Gloria/GLORIA_ReadMe_057.xlsx'
-labels = pd.read_excel(readme, sheet_name=None)
-
-t_cats = labels['Sequential region-sector labels']['Sequential_regionSector_labels'].tolist()
-z_idx = pd.MultiIndex.from_arrays([[x.split('(')[1].split(')')[0] for x in t_cats],
-                                   [x.split(') ')[1] for x in t_cats]])
-
-fd_cats = labels['Sequential region-sector labels']['Sequential_finalDemand_labels'].dropna(how='all', axis=0).tolist()
-y_cols = pd.MultiIndex.from_arrays([[x.split('(')[1].split(')')[0] for x in fd_cats],
-                                    [x.split(') ')[1] for x in fd_cats]])
-
-sat_rows = labels['Satellites']['Sat_indicator']
-
-stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
     
+"""    
+##################
+## Compare sums ##
+##################
+
+check_uk_all = pd.DataFrame(index=years)
+
 for year in years:
-    
-    gloria_data[year] = {}
-    
-    z_filepath = (mrio_filepath + 'Gloria/Main/20230315_120secMother_AllCountries_002_T-Results_' + str(year) + '_057_Markup001(full).csv') 
-    y_filepath = (mrio_filepath + 'Gloria/Main/20230315_120secMother_AllCountries_002_Y-Results_' + str(year) + '_057_Markup001(full).csv') 
-    co2_filepath = (mrio_filepath + 'Gloria/Satellite_Accounts/20230727_120secMother_AllCountries_002_TQ-Results_' + str(year) + '_057_Markup001(full).csv') 
-    
-    gloria_data[year]['Z'] = pd.read_csv(z_filepath, header=None, index_col=None)
-    gloria_data[year]['Z'].index = z_idx; gloria_data[year]['Z'].columns = z_idx
-    
-    gloria_data[year]['Y'] = pd.read_csv(y_filepath, header=None, index_col=None)
-    gloria_data[year]['Y'].index = z_idx; gloria_data[year]['Y'].columns = y_cols
-    
-    gloria_data[year]['co2'] = pd.read_csv(co2_filepath, header=None, index_col=None)
-    gloria_data[year]['co2'].index = sat_rows; gloria_data[year]['co2'].columns = z_idx
-    gloria_data[year]['co2'] = gloria_data[year]['co2'][year].loc[stressor_cat,:]
-    
-    print(year)
- 
-# calculate gloria footprint
-co2_gloria = {}
-for year in years:
-    Z = gloria_data[year]['Z']; Y = gloria_data[year]['Y']; stressor = gloria_data[year]['co2']
-    co2_gloria[year] = cef.indirect_footprint(Z, Y, stressor)
-    co2_gloria[year].index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in co2_gloria[year].index], 
-                                                       [x.split('_')[1] for x in co2_oecd[year].index]])
-    co2_oecd[year].columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in co2_oecd[year].columns], 
-                                                       [x.split('_')[1] for x in co2_oecd[year].columns]])
-    
-    print(year)
-     
-# check if UK result makes sense    
-check_uk_oecd = {}
-for year in years:
-    check_uk_oecd[year] = co2_oecd[year]['GBR'].sum(0)
-    print(year)
+    check_uk_all.loc[year, 'exio'] = check_uk_exio[year].sum()
+    check_uk_all.loc[year, 'figaro'] = check_uk_figaro[year].sum()
+    check_uk_all.loc[year, 'icio'] = check_uk_oecd[year].sum()
+    #check_uk_all.loc[year, 'gloria'] = check_uk_gloria[year].sum()
+
     
