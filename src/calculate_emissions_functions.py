@@ -32,11 +32,11 @@ def make_e(stressor, x):
     e = e/x
 
 
-def indirect_footprint(Z, Y, stressor):
+def indirect_footprint_Z(Z, Y, stressor):
 
     x = make_x(Z, Y)
     L = make_L(Z, x)
-    s = stressor.apply(lambda i: i/x).fillna(0).iloc[:,0]
+    s = stressor.apply(lambda i: i/x).fillna(0).iloc[:, 0]
     sL = np.dot(np.diag(s), L)
     sLy = np.dot(sL, Y)
     
@@ -45,4 +45,31 @@ def indirect_footprint(Z, Y, stressor):
     return footprint
 
 
+def make_Z_from_S_U(S, U):
+    
+    Z = np.zeros(shape = (np.size(S, 0)+np.size(U, 0), np.size(S, 1)+np.size(U, 1)))
+    
+    Z[np.size(S, 0):, 0:np.size(U, 1)] = U
+    Z[0:np.size(S, 0), np.size(U, 1):] = S
+        
+    return Z
 
+
+def indirect_footprint_SUT(S, U, Y, stressor):
+    
+    temp = np.zeros(shape = np.size(Y, 1))
+    Z = make_Z_from_S_U(S, U) 
+    
+    bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
+    bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y     
+    x = make_x(Z, bigY)
+    L = make_L(Z, x)
+    bigstressor = np.zeros(shape = [np.size(Y, 0)*2, 1])
+    bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
+    e = np.sum(bigstressor, 1)/x
+    eL = np.dot(e, L)
+    for a in range(np.size(Y, 1)):
+        temp[a] = np.dot(eL, bigY[:, a])
+    footprint = temp
+      
+    return footprint
