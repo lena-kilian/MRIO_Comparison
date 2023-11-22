@@ -12,7 +12,6 @@ Created on Mon Sep 25 14:31:51 2023
 import pandas as pd
 from sys import platform
 import calculate_emissions_functions as cef
-import os
 
 # set working directory
 # make different path depending on operating system

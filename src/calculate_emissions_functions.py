@@ -36,11 +36,11 @@ def indirect_footprint_Z(Z, Y, stressor):
 
     x = make_x(Z, Y)
     L = make_L(Z, x)
-    s = stressor.apply(lambda i: i/x).fillna(0).iloc[:, 0]
-    sL = np.dot(np.diag(s), L)
-    sLy = np.dot(sL, Y)
+    e = stressor.apply(lambda i: i/x).fillna(0).iloc[:, 0]
+    eL = np.dot(np.diag(e), L)
+    eLy = np.dot(eL, Y)
     
-    footprint = pd.DataFrame(sLy, index=Y.index, columns=Y.columns)
+    footprint = pd.DataFrame(eLy, index=Y.index, columns=Y.columns)
         
     return footprint
 
@@ -57,10 +57,14 @@ def make_Z_from_S_U(S, U):
 
 def indirect_footprint_SUT(S, U, Y, stressor):
     
-    temp = np.zeros(shape = np.size(Y, 1))
     Z = make_Z_from_S_U(S, U) 
     
     bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
+    
+    footprint = np.zeros(shape = bigY.shape).T
+    #y_cols = Y.columns
+    #y_index = Z.index
+    
     bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y     
     x = make_x(Z, bigY)
     L = make_L(Z, x)
@@ -68,8 +72,9 @@ def indirect_footprint_SUT(S, U, Y, stressor):
     bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
     e = np.sum(bigstressor, 1)/x
     eL = np.dot(e, L)
+
     for a in range(np.size(Y, 1)):
-        temp[a] = np.dot(eL, bigY[:, a])
-    footprint = temp
-      
+        footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
+        print(str(a) + ': ' + str(round((a/np.size(Y, 1) * 100), 2)) + '% complete')
+     
     return footprint
