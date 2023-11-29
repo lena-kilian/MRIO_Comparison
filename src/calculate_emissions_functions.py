@@ -72,9 +72,13 @@ def indirect_footprint_SUT(S, U, Y, stressor):
     bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
     e = np.sum(bigstressor, 1)/x
     eL = np.dot(e, L)
-
+    
     for a in range(np.size(Y, 1)):
         footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
-        print(str(a) + ': ' + str(round((a/np.size(Y, 1) * 100), 2)) + '% complete')
+    
+    z_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
+                                       [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    footprint = pd.DataFrame(footprint, index=Y.columns, columns=z_idx)
+    footprint = footprint[U.columns.tolist()]
      
     return footprint

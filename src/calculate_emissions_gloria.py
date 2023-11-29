@@ -12,6 +12,25 @@ Created on Mon Sep 25 14:31:51 2023
 import pandas as pd
 from sys import platform
 import calculate_emissions_functions as cef
+from datetime import datetime
+import psutil
+import inspect
+
+stats = pd.DataFrame()
+start_time_all = datetime.now()
+
+# add timestamp
+def add_time_mem(stats, start_time_all, year):
+    temp = pd.DataFrame(psutil.virtual_memory()).T
+    temp.columns=['total', 'available', 'percent', 'used', 'free']
+    temp['duration'] = datetime.now() - start_time_all
+    temp['line_no'] = int(inspect.getframeinfo(inspect.stack()[1][0]).lineno)
+    temp['year'] = year
+    stats = stats.append(temp)
+    print(stats)
+    return(stats)
+
+stats = add_time_mem(stats, start_time_all, 0)
 
 # set working directory
 # make different path depending on operating system
@@ -25,7 +44,7 @@ mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
 
-years = range(2010, 2019)
+years = [2016] #range(2016, 2019)
 
 ############
 ## Gloria ##
@@ -112,6 +131,11 @@ stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
 del t_cats, temp_c, cs, a, c, temp_s, i, temp, fd_cats, industries, products, item
     
 check_uk_gloria = {}
+times = {}
+start_time_years = datetime.now()
+
+stats = add_time_mem(stats, start_time_all, 0)
+
 for year in years:
 
     if year < 2017:
@@ -127,44 +151,35 @@ for year in years:
     Z.index = z_idx; Z.columns = z_idx
     S = Z.loc[industry_idx, product_idx]
     U = Z.loc[product_idx, industry_idx]
+    stats = add_time_mem(stats, start_time_all, year)
     del Z # remove Z to clear memory
+    stats = add_time_mem(stats, start_time_all, year)
     
     Y = pd.read_csv(y_filepath, header=None, index_col=None)
     Y.index = z_idx; Y.columns = y_cols
     Y = Y.loc[product_idx]
+    stats = add_time_mem(stats, start_time_all, year)
     
     stressor = pd.read_csv(co2_filepath, header=None, index_col=None)
     stressor.index = sat_rows; stressor.columns = z_idx
     stressor = stressor.loc[stressor_cat, industry_idx]
+    stats = add_time_mem(stats, start_time_all, year)
     
     print('Data loaded for ' + str(year))
+    stats = add_time_mem(stats, start_time_all, year)
 
     # calculate gloria footprint
     co2_gloria = cef.indirect_footprint_SUT(S, U, Y, stressor)
-    co2_gloria.index = y_cols
-    
-    co2_gloria.replace(columns={'product':'', 'industry':''})
-    
-    print('Global fooprint: ', co2_gloria.sum().sum())
 
     print('Footprint calculated for ' + str(year))
+    stats = add_time_mem(stats, start_time_all, year)
     
     co2_gloria.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '.csv')
     
     print('Footprint saved for ' + str(year))
-    
-    # check if UK result makes sense    
+    stats = add_time_mem(stats, start_time_all, year)
 
-    check_uk_gloria[year] = co2_gloria['GBR'].sum(0)
-    print(year)
-    
 print('Gloria done')
-  
-##################
-## Compare sums ##
-##################
 
-for year in years:
-    print(year, check_uk_gloria[year].sum(0))
-
-    
+stats = add_time_mem(stats, start_time_all, 9999)
+stats.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '.csv')
