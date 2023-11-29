@@ -12,7 +12,26 @@ Created on Mon Sep 25 14:31:51 2023
 import pandas as pd
 from sys import platform
 import calculate_emissions_functions as cef
+from datetime import datetime
+import psutil
+import inspect
+import numpy as np
 
+stats = pd.DataFrame()
+start_time_all = datetime.now()
+
+# add timestamp
+def add_time_mem(stats, start_time_all, year):
+    temp = pd.DataFrame(psutil.virtual_memory()).T
+    temp.columns=['total', 'available', 'percent', 'used', 'free']
+    temp['duration'] = datetime.now() - start_time_all
+    temp['line_no'] = int(inspect.getframeinfo(inspect.stack()[1][0]).lineno)
+    temp['year'] = year
+    stats = stats.append(temp)
+    print(stats)
+    return(stats)
+
+stats = add_time_mem(stats, start_time_all, 0)
 
 # set working directory
 # make different path depending on operating system
@@ -71,6 +90,8 @@ t_cats['sector'] = temp_s
 # fix final demand labels
 fd_cats = pd.DataFrame(labels['Sequential region-sector labels']['Sequential_finalDemand_labels'].dropna(how='all', axis=0)); fd_cats.columns = ['label']
 
+stats = add_time_mem(stats, start_time_all, 0)
+
 temp_c = []
 for cs in fd_cats['label']:
     a = False
@@ -99,6 +120,8 @@ t_cats['ind'] = t_cats['label'].str[-8:]
 industries = t_cats.loc[t_cats['ind'] == 'industry']
 products = t_cats.loc[t_cats['ind'] != 'industry']
 
+stats = add_time_mem(stats, start_time_all, 0)
+
 # make index labels
 z_idx = pd.MultiIndex.from_arrays([t_cats['country'], t_cats['sector']])
 industry_idx = pd.MultiIndex.from_arrays([industries['country'], industries['sector']])
@@ -112,6 +135,10 @@ stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
 del t_cats, temp_c, cs, a, c, temp_s, i, temp, fd_cats, industries, products, item
     
 check_uk_gloria = {}
+times = {}
+start_time_years = datetime.now()
+
+stats = add_time_mem(stats, start_time_all, 0)
 
 for year in years:
 
@@ -123,30 +150,77 @@ for year in years:
     z_filepath = (mrio_filepath + 'Gloria/Main/' + date_var + '_120secMother_AllCountries_002_T-Results_' + str(year) + '_057_Markup001(full).csv') 
     y_filepath = (mrio_filepath + 'Gloria/Main/' + date_var + '_120secMother_AllCountries_002_Y-Results_' + str(year) + '_057_Markup001(full).csv') 
     co2_filepath = (mrio_filepath + 'Gloria/Satellite_Accounts/20230727_120secMother_AllCountries_002_TQ-Results_' + str(year) + '_057_Markup001(full).csv') 
+    stats = add_time_mem(stats, start_time_all, year)
     
     Z = pd.read_csv(z_filepath, header=None, index_col=None)
     Z.index = z_idx; Z.columns = z_idx
     S = Z.loc[industry_idx, product_idx]
     U = Z.loc[product_idx, industry_idx]
+    stats = add_time_mem(stats, start_time_all, year)
     del Z # remove Z to clear memory
+    stats = add_time_mem(stats, start_time_all, year)
     
     Y = pd.read_csv(y_filepath, header=None, index_col=None)
     Y.index = z_idx; Y.columns = y_cols
     Y = Y.loc[product_idx]
+    stats = add_time_mem(stats, start_time_all, year)
     
     stressor = pd.read_csv(co2_filepath, header=None, index_col=None)
     stressor.index = sat_rows; stressor.columns = z_idx
     stressor = stressor.loc[stressor_cat, industry_idx]
+    stats = add_time_mem(stats, start_time_all, year)
     
     print('Data loaded for ' + str(year))
+    stats = add_time_mem(stats, start_time_all, year)
+    
+    # save column names
+    z_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
+                                       [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    u_cols = U.columns.tolist()
 
     # calculate gloria footprint
-    co2_gloria = cef.indirect_footprint_SUT(S, U, Y, stressor)
-
+    Z = cef.make_Z_from_S_U(S, U) 
+    stats = add_time_mem(stats, start_time_all, year)
+    del S, U # remove S and U to clear memory
+    stats = add_time_mem(stats, start_time_all, year)
+    bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
+    stats = add_time_mem(stats, start_time_all, year)
+    
+    footprint = np.zeros(shape = bigY.shape).T
+    stats = add_time_mem(stats, start_time_all, year)
+    
+    bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y     
+    stats = add_time_mem(stats, start_time_all, year)
+    x = cef.make_x(Z, bigY)
+    stats = add_time_mem(stats, start_time_all, year)
+    L = cef.make_L(Z, x)
+    stats = add_time_mem(stats, start_time_all, year)
+    bigstressor = np.zeros(shape = [np.size(Y, 0)*2, 1])
+    stats = add_time_mem(stats, start_time_all, year)
+    bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
+    stats = add_time_mem(stats, start_time_all, year)
+    e = np.sum(bigstressor, 1)/x
+    stats = add_time_mem(stats, start_time_all, year)
+    eL = np.dot(e, L)
+    stats = add_time_mem(stats, start_time_all, year)
+    
+    for a in range(1): # normally this is run for np.size(Y, 1) iterations
+        footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
+        stats = add_time_mem(stats, start_time_all, year)
+    
+    stats = add_time_mem(stats, start_time_all, year)
+    footprint = pd.DataFrame(footprint, index=Y.columns, columns=z_idx)
+    footprint = footprint[u_cols]
+    stats = add_time_mem(stats, start_time_all, year)
+    
     print('Footprint calculated for ' + str(year))
     
-    co2_gloria.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '.csv')
+    footprint.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/MEMORY_TEST_CO2_' + str(year) + '.csv')
     
     print('Footprint saved for ' + str(year))
+    stats = add_time_mem(stats, start_time_all, year)
 
 print('Gloria done')
+
+stats = add_time_mem(stats, start_time_all, 9999)
+stats.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Python_stats.csv')

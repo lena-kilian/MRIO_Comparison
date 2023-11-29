@@ -56,14 +56,20 @@ def make_Z_from_S_U(S, U):
 
 
 def indirect_footprint_SUT(S, U, Y, stressor):
+    # make column names
+    z_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
+                                       [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    u_cols = U.columns.tolist()
+    y_cols = Y.columns
     
+    # calculate emissions
     Z = make_Z_from_S_U(S, U) 
+    # clear memory
+    del S, U
     
     bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
     
     footprint = np.zeros(shape = bigY.shape).T
-    #y_cols = Y.columns
-    #y_index = Z.index
     
     bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y     
     x = make_x(Z, bigY)
@@ -76,9 +82,10 @@ def indirect_footprint_SUT(S, U, Y, stressor):
     for a in range(np.size(Y, 1)):
         footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
     
-    z_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
-                                       [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
-    footprint = pd.DataFrame(footprint, index=Y.columns, columns=z_idx)
-    footprint = footprint[U.columns.tolist()]
+    # clear memory
+    del x, L, bigY, eL, e, Y, Z, bigstressor
+    
+    footprint = pd.DataFrame(footprint, index=y_cols, columns=z_idx)
+    footprint = footprint[u_cols]
      
     return footprint
