@@ -223,4 +223,4 @@ for year in years:
 print('Gloria done')
 
 stats = add_time_mem(stats, start_time_all, 9999)
-stats.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Python_stats.csv')
+stats.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Python_stats_all.csv')

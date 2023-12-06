@@ -55,10 +55,45 @@ def make_Z_from_S_U(S, U):
     return Z
 
 
+def indirect_footprint_exio(S, U, Y, stressor):
+    # make column names
+    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
+                                        [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    u_cols = U.columns.tolist()
+    y_cols = Y.columns
+
+    Z = make_Z_from_S_U(S,U)
+    bigY = np.zeros(shape = [np.size(Y,0)*2,np.size(Y,1)])
+    bigY[np.size(Y,0):np.size(Y,0)*2,0:np.size(Y,1)] = Y
+    x = make_x(Z,bigY)
+    
+    bigX = np.zeros(shape = (len(Z)))
+    bigX = np.tile(np.transpose(x), (len(Z), 1))
+    A = np.divide(Z, bigX)    
+    L = np.linalg.inv(np.identity(len(Z))-A)
+
+    
+    bigstressor = np.zeros(shape = [np.size(Y,0)*2,1])
+    bigstressor[0:np.size(Y,0),:] = stressor
+    e = np.sum(bigstressor,1)/x
+    eL = np.dot(np.diag(e),L)
+    
+    footprint = np.zeros(shape = bigY.shape).T
+    for a in range(np.size(Y, 1)):
+        footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
+    
+    footprint = pd.DataFrame(footprint, index=y_cols, columns=su_idx)
+    footprint = footprint[u_cols]
+    
+    return footprint
+         
+
+
+
 def indirect_footprint_SUT(S, U, Y, stressor):
     # make column names
-    z_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
-                                       [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
+                                        [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
     u_cols = U.columns.tolist()
     y_cols = Y.columns
     
@@ -82,10 +117,7 @@ def indirect_footprint_SUT(S, U, Y, stressor):
     for a in range(np.size(Y, 1)):
         footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
     
-    # clear memory
-    del x, L, bigY, eL, e, Y, Z, bigstressor
-    
-    footprint = pd.DataFrame(footprint, index=y_cols, columns=z_idx)
+    footprint = pd.DataFrame(footprint, index=y_cols, columns=su_idx)
     footprint = footprint[u_cols]
      
     return footprint
