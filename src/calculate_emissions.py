@@ -15,8 +15,6 @@ import calculate_emissions_functions as cef
 import itertools
 import pickle
 import numpy as np
-import os
-import copy as cp
 
 
 # set working directory
