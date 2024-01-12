@@ -51,13 +51,14 @@ years = [2016] #range(2016, 2019)
 ## Gloria ##
 ############
 
-readme = mrio_filepath + 'Gloria/GLORIA_ReadMe_057.xlsx'
+readme = mrio_filepath + 'Gloria/GLORIA_ReadMe_057_small.xlsx'
 labels = pd.read_excel(readme, sheet_name=None)
 
 # get lookup to fix labels
-lookup = pd.read_excel('O://ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name=None)
+lookup = pd.read_excel('O://ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand_small.xlsx', sheet_name=None)
 
 lookup['countries'] = lookup['countries'][['gloria', 'gloria_code']].drop_duplicates().dropna()
+
 lookup['countries']['gloria_combo'] = lookup['countries']['gloria'] + ' (' + lookup['countries']['gloria_code'] + ') '
 
 lookup['sectors'] = lookup['sectors'][['gloria']].drop_duplicates().dropna()
@@ -108,12 +109,13 @@ if 'NA' in temp_c:
     raise SystemExit
 
 fd_cats['country_full'] = temp_c
-fd_cats['country'] = [x.split('(')[-1][:-2] for x in fd_cats['country_full']]
+fd_cats['country'] = [x.split('(')[-1][:-1] for x in fd_cats['country_full']]
 temp_s = []
 for i in range(len(fd_cats)):
     temp = fd_cats.iloc[i, :]
     temp_s.append(temp['label'].replace(temp['country_full'], ''))
 fd_cats['fd'] = temp_s
+
 
 # keep only industries
 t_cats['ind'] = t_cats['label'].str[-8:]
@@ -147,13 +149,15 @@ for year in years:
     else:
         date_var = '20230315'
     
-    z_filepath = (mrio_filepath + 'Gloria/Main/' + date_var + '_120secMother_AllCountries_002_T-Results_' + str(year) + '_057_Markup001(full).csv') 
-    y_filepath = (mrio_filepath + 'Gloria/Main/' + date_var + '_120secMother_AllCountries_002_Y-Results_' + str(year) + '_057_Markup001(full).csv') 
-    co2_filepath = (mrio_filepath + 'Gloria/Satellite_Accounts/20230727_120secMother_AllCountries_002_TQ-Results_' + str(year) + '_057_Markup001(full).csv') 
+    z_filepath = (mrio_filepath + 'Gloria/Z_small.csv')
+    y_filepath = (mrio_filepath + 'Gloria/Y_small.csv') 
+    co2_filepath = (mrio_filepath + 'Gloria/stressor_small.csv') 
     stats = add_time_mem(stats, start_time_all, year)
+    
     
     Z = pd.read_csv(z_filepath, header=None, index_col=None)
     Z.index = z_idx; Z.columns = z_idx
+    
     S = Z.loc[industry_idx, product_idx]
     U = Z.loc[product_idx, industry_idx]
     stats = add_time_mem(stats, start_time_all, year)
@@ -161,13 +165,15 @@ for year in years:
     stats = add_time_mem(stats, start_time_all, year)
     
     Y = pd.read_csv(y_filepath, header=None, index_col=None)
-    Y.index = z_idx; Y.columns = y_cols
+    Y.index = z_idx; Y.columns = y_cols    
     Y = Y.loc[product_idx]
+    
     stats = add_time_mem(stats, start_time_all, year)
     
     stressor = pd.read_csv(co2_filepath, header=None, index_col=None)
     stressor.index = sat_rows; stressor.columns = z_idx
     stressor = stressor.loc[stressor_cat, industry_idx]
+
     stats = add_time_mem(stats, start_time_all, year)
     
     print('Data loaded for ' + str(year))
@@ -204,7 +210,7 @@ for year in years:
     eL = np.dot(e, L)
     stats = add_time_mem(stats, start_time_all, year)
     
-    for a in range(1): # normally this is run for np.size(Y, 1) iterations
+    for a in range(np.size(Y, 1)):
         footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
         stats = add_time_mem(stats, start_time_all, year)
     
@@ -223,4 +229,3 @@ for year in years:
 print('Gloria done')
 
 stats = add_time_mem(stats, start_time_all, 9999)
-stats.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Python_stats_all.csv')

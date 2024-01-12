@@ -39,8 +39,8 @@ labels = pd.read_excel(readme, sheet_name=None)
 # get lookup to fix labels
 lookup = pd.read_excel('O://ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name=None)
 # get list of countries in dataset
-lookup['countries'] = lookup['countries'][['gloria', 'gloria_code']].drop_duplicates().dropna()
-lookup['countries']['gloria_combo'] = lookup['countries']['gloria'] + ' (' + lookup['countries']['gloria_code'] + ') '
+lookup['countries'] = lookup['countries'][['gloria', 'gloria_code_long']].drop_duplicates().dropna()
+lookup['countries']['gloria_combo'] = lookup['countries']['gloria'] + ' (' + lookup['countries']['gloria_code_long'] + ') '
 # get list of sectors in dataset
 lookup['sectors'] = lookup['sectors'][['gloria']].drop_duplicates().dropna()
 
@@ -53,7 +53,7 @@ temp_c = []
 for cs in t_cats['label']:
     a = False
     for item in cs.split('('):
-        if item.split(')')[0] in lookup['countries']['gloria_code'].tolist():
+        if item.split(')')[0] in lookup['countries']['gloria_code_long'].tolist():
             a = True
             c = cs.split(item.split(')')[0])[0] + item.split(')')[0] + ')'
             temp_c.append(c)
@@ -81,7 +81,7 @@ temp_c = []
 for cs in fd_cats['label']:
     a = False
     for item in cs.split('('):
-        if item.split(')')[0] in lookup['countries']['gloria_code'].tolist():
+        if item.split(')')[0] in lookup['countries']['gloria_code_long'].tolist():
             a = True
             c = cs.split(item.split(')')[0])[0] + item.split(')')[0] + ')'
             temp_c.append(c)
@@ -94,7 +94,7 @@ if 'NA' in temp_c:
     raise SystemExit
 
 fd_cats['country_full'] = temp_c
-fd_cats['country'] = [x.split('(')[-1][:-2] for x in fd_cats['country_full']]
+fd_cats['country'] = [x.split('(')[-1][:-1] for x in fd_cats['country_full']]
 temp_s = []
 for i in range(len(fd_cats)):
     temp = fd_cats.iloc[i, :]
@@ -148,7 +148,7 @@ for year in years: # here years is only [2016], normally this is range(2010, 201
     # import Y and rename index and column
     # again, it's matched to the strutcure of other datasets we analyse
     Y = pd.read_csv(y_filepath, header=None, index_col=None)
-    Y.index = z_idx; Y.columns = y_cols
+    Y.index = z_idx; Y.columns = y_cols    
     Y = Y.loc[product_idx]
     
     # import stressor (co2) data

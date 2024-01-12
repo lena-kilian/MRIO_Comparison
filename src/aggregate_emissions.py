@@ -7,11 +7,7 @@ Created on Wed Dec  6 10:30:46 2023
 
 import pandas as pd
 from sys import platform
-import calculate_emissions_functions as cef
-import itertools
 import pickle
-import numpy as np
-import os
 import copy as cp
 
 
@@ -26,19 +22,20 @@ else:
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
-years = range(2010, 2019)
+years = [2018] #range(2010, 2019)
 
 # Load data
-co2_gloria = {year: pd.read_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '.csv') for year in years}
+co2_gloria = {year: pd.read_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '.csv', index_col=[0,1], header=[0, 1]) for year in years}# should be 2010
 co2_oecd = pickle.load(open(emissions_filepath + 'ICIO/ICIO_emissions.p', 'rb'))
 co2_figaro = pickle.load(open(emissions_filepath + 'Figaro/Figaro_emissions.p', 'rb'))
-#co2_exio = pickle.load(open(emissions_filepath + 'ICIO/ICIO_emissions.p', 'rb'))
+co2_exio = {2018:pd.read_csv(emissions_filepath + 'Exiobase/Exiobase_emissions.csv', header=[0, 1], index_col=[0, 1])}
 
 # Load lookup file
 lookup = pd.read_excel(data_filepath + 'lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name = None)
 
 # convert to same categories
 for year in years:
+    print(year)
     
     ############
     ## Figaro ##
@@ -100,19 +97,42 @@ for year in years:
     ############
     
     # make dictionaries
-    oecd_countries = lookup['countries'][['oecd_code', 'combined_name']].drop_duplicates();
-    oecd_countries = dict(zip(oecd_countries['oecd_code'], oecd_countries['combined_name']))
+    gloria_countries = lookup['countries'][['gloria', 'combined_name']].drop_duplicates();
+    gloria_countries = dict(zip(gloria_countries['gloria'], gloria_countries['combined_name']))
     
-    oecd_sectors = lookup['sectors'][['oecd_code', 'combined_name']].drop_duplicates();
-    oecd_sectors = dict(zip(oecd_sectors['oecd_code'], oecd_sectors['combined_name']))
+    gloria_sectors = lookup['sectors'][['gloria_cat', 'combined_name']].drop_duplicates();
+    gloria_sectors = dict(zip(gloria_sectors['gloria_cat'], gloria_sectors['combined_name']))
     
-    oecd_fd = lookup['final_demand'][['oecd_code', 'combined_name']].drop_duplicates();
-    oecd_fd = dict(zip(oecd_fd['oecd_code'], oecd_fd['combined_name']))
+    gloria_fd = lookup['final_demand'][['gloria', 'combined_name']].drop_duplicates();
+    gloria_fd = dict(zip(gloria_fd['gloria'], gloria_fd['combined_name']))
     
     # rename indices
-    co2_oecd[year].index = pd.MultiIndex.from_arrays([[oecd_countries[x[0]] for x in co2_oecd[year].index.tolist()], [oecd_sectors[x[1]] for x in co2_oecd[year].index.tolist()]])
-    co2_oecd[year].columns = pd.MultiIndex.from_arrays([[oecd_countries[x[0]] for x in co2_oecd[year].columns.tolist()], [oecd_fd[x[1]] for x in co2_oecd[year].columns.tolist()]])
+    co2_gloria[year].index = pd.MultiIndex.from_arrays([[gloria_countries[x[0]] for x in co2_gloria[year].index.tolist()], [gloria_sectors[x[1]] for x in co2_gloria[year].index.tolist()]])
+    co2_gloria[year].columns = pd.MultiIndex.from_arrays([[gloria_countries[x[0]] for x in co2_gloria[year].columns.tolist()], [gloria_fd[x[1]] for x in co2_gloria[year].columns.tolist()]])
     # aggregate
-    co2_oecd[year] = co2_oecd[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
+    co2_gloria[year] = co2_gloria[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
 
 
+
+uk = pd.DataFrame()
+for year in years:
+    temp_oecd = co2_oecd[year]['United Kingdom'].sum().sum()
+    temp_figaro = co2_figaro[year]['United Kingdom'].sum().sum()
+    temp_gloria = co2_gloria[year]['GBR'].sum().sum()
+    temp_exio = co2_exio[year]['GB'].sum().sum()
+    
+    temp = pd.DataFrame(index=[year], columns = ['oecd', 'figaro'])#, 'gloria'])
+    temp['oecd'] = temp_oecd * 1000
+    temp['figaro'] = temp_figaro
+    #temp['gloria'] = temp_gloria
+    
+    uk = uk.append(temp)
+
+uk = uk.T
+
+uk_change = uk.apply(lambda x: x/uk[2010]).T
+
+
+uk.T.plot() 
+uk_change.plot()   
+    

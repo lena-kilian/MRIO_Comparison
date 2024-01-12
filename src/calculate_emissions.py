@@ -31,33 +31,6 @@ outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
 years = range(2010, 2019)
 
-##############
-## EXIOBASE ##
-##############
-"""
-exio_data = {}
-for year in years:
-    
-    exio_data[year] = {}
-                  
-    filepath = wd + 'UKMRIO_Data/EXIOBASE/3.8.2/MRSUT_' + str(year) + '/'
-            
-    exio_data[year]['S'] = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0, 1], index_col = [0, 1])
-    exio_data[year]['U'] = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0, 1], index_col = [0, 1])
-    exio_data[year]['Y'] = pd.read_csv(filepath + 'final_demand.csv', sep='\t', header = [0, 1], index_col = [0, 1])
-    exio_data[year]['co2'] = pd.DataFrame(pd.read_csv(filepath + 'F.txt', sep='\t', index_col=0, header=[0, 1])\
-        .loc['Carbon dioxide (CO2) IPCC categories 1 to 4 and 6 to 7 (excl land use, land use change and forestry)', :])
-    print(year)
-
-# calculate exio footprint
-co2_exio = {}
-for year in years:
-    S = exio_data[year]['S']; U = exio_data[year]['U']; Y = exio_data[year]['Y']; stressor = exio_data[year]['co2']
-    co2_exio[year] = cef.indirect_footprint_SUT(S, U, Y, stressor)
-    print(year)
-    
-pickle.dump(co2_exio, open(emissions_filepath + 'ICIO/ICIO_emissions.p', 'wb'))
-"""     
 ############
 ## Figaro ##
 ############
