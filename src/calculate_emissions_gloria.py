@@ -26,7 +26,7 @@ mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
 
-years = [2016] #range(2016, 2019)
+years = range(2010, 2019)
 
 ############
 ## Gloria ##
@@ -38,8 +38,8 @@ labels = pd.read_excel(readme, sheet_name=None)
 # get lookup to fix labels
 lookup = pd.read_excel('O://ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name=None)
 
-lookup['countries'] = lookup['countries'][['gloria', 'gloria_code']].drop_duplicates().dropna()
-lookup['countries']['gloria_combo'] = lookup['countries']['gloria'] + ' (' + lookup['countries']['gloria_code'] + ') '
+lookup['countries'] = lookup['countries'][['gloria', 'gloria_code_long']].drop_duplicates().dropna()
+lookup['countries']['gloria_combo'] = lookup['countries']['gloria'] + ' (' + lookup['countries']['gloria_code_long'] + ') '
 
 lookup['sectors'] = lookup['sectors'][['gloria']].drop_duplicates().dropna()
 
@@ -49,7 +49,7 @@ temp_c = []
 for cs in t_cats['label']:
     a = False
     for item in cs.split('('):
-        if item.split(')')[0] in lookup['countries']['gloria_code'].tolist():
+        if item.split(')')[0] in lookup['countries']['gloria_code_long'].tolist():
             a = True
             c = cs.split(item.split(')')[0])[0] + item.split(')')[0] + ')'
             temp_c.append(c)
@@ -75,7 +75,7 @@ temp_c = []
 for cs in fd_cats['label']:
     a = False
     for item in cs.split('('):
-        if item.split(')')[0] in lookup['countries']['gloria_code'].tolist():
+        if item.split(')')[0] in lookup['countries']['gloria_code_long'].tolist():
             a = True
             c = cs.split(item.split(')')[0])[0] + item.split(')')[0] + ')'
             temp_c.append(c)
@@ -87,7 +87,7 @@ if 'NA' in temp_c:
     raise SystemExit
 
 fd_cats['country_full'] = temp_c
-fd_cats['country'] = [x.split('(')[-1][:-2] for x in fd_cats['country_full']]
+fd_cats['country'] = [x.split('(')[-1][:-1] for x in fd_cats['country_full']]
 temp_s = []
 for i in range(len(fd_cats)):
     temp = fd_cats.iloc[i, :]

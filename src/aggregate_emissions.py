@@ -146,6 +146,7 @@ for year in years:
     temp['oecd'] = temp_oecd * 1000
     temp['figaro'] = temp_figaro
     temp['gloria'] = temp_gloria
+    temp['exio'] = temp_exio
     
     uk = uk.append(temp)
 
@@ -157,3 +158,4 @@ uk_change = uk.apply(lambda x: x/uk[2010]).T
 uk.T.plot(); plt.show()
 uk_change.plot(); plt.show()  
     
+uk_corr = uk.corr()
