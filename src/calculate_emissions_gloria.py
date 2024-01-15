@@ -26,7 +26,7 @@ mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
 
-years = range(2010, 2019)
+years = [2010]# range(2010, 2019)
 
 ############
 ## Gloria ##

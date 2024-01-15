@@ -20,8 +20,8 @@ def make_L(Z, x):
     
     bigX = np.zeros(shape = (len(Z)))    
     bigX = np.tile(np.transpose(x), (len(Z), 1))
-    A = np.divide(Z, bigX)    
-    L = np.linalg.inv(np.identity(len(Z))-A)
+    A = np.divide(Z, bigX)
+    L = np.linalg.pinv(np.identity(len(A))-A)
 
     return L
 
@@ -87,7 +87,44 @@ def indirect_footprint_SUT(S, U, Y, stressor):
     return footprint
 
 def indirect_footprint_gloria(S, U, Y, stressor):
+    
+    # save column names
+    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
+                                        [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    u_cols = U.columns.tolist()
+
+    # calculate gloria footprint
+    Z = make_Z_from_S_U(S, U) 
+    del S, U # remove S and U to clear memory
+    bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
+    
+    footprint = np.zeros(shape = bigY.shape).T
+  
+    bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y     
+    x = make_x(Z, bigY)
+    L = make_L(Z, x)
+    bigstressor = np.zeros(shape = [np.size(Y, 0)*2, 1])
+    bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
+    e = np.sum(bigstressor, 1)/x
+    eL = np.dot(e, L)
+    
+    for a in range(np.size(Y, 1)):
+        footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
+    
+    footprint = pd.DataFrame(footprint, index=Y.columns, columns=su_idx)
+    footprint = footprint[u_cols]
+    
+    return footprint
+    
+    
+    
+    
+    
     # make column names
+
+
+
+
     su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
                                         [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
     u_cols = U.columns.tolist()
@@ -95,22 +132,24 @@ def indirect_footprint_gloria(S, U, Y, stressor):
     
     # calculate emissions
     Z = make_Z_from_S_U(S, U) 
+    # clear memory
+    del S, U
     
-    bigY = np.zeros(shape = [np.size(Z, 0), np.size(Y, 1)])
+    bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
     
     footprint = np.zeros(shape = bigY.shape).T
     
-    bigY[np.size(S, 0):np.size(Z, 0), 0:] = Y 
+    bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y     
     x = make_x(Z, bigY)
     L = make_L(Z, x)
-    bigstressor = np.zeros(shape = [np.size(Z, 0), 1])
-    bigstressor[:np.size(S, 0), 0] = np.array(stressor)
+    bigstressor = np.zeros(shape = [np.size(Y, 0)*2, 1])
+    bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
     e = np.sum(bigstressor, 1)/x
     eL = np.dot(e, L)
     
-    for a in range(np.size(Y, 1)):
+    for a in range(700, np.size(Y, 1)):
         footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
-        print(a)
+        print(a, footprint[a].sum())
     
     footprint = pd.DataFrame(footprint, index=y_cols, columns=su_idx)
     footprint = footprint[u_cols]
