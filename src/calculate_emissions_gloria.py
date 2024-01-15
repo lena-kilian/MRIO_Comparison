@@ -141,7 +141,7 @@ for year in years:
     print('Data loaded for ' + str(year))
 
     # calculate gloria footprint
-    co2_gloria = cef.indirect_footprint_SUT(S, U, Y, stressor)
+    co2_gloria = cef.indirect_footprint_gloria(S, U, Y, stressor)
 
     print('Footprint calculated for ' + str(year))
     

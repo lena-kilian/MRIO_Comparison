@@ -22,7 +22,7 @@ else:
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
-years = range(2010, 2019)
+years = [2010]#range(2010, 2019)
 
 # Load data
 co2_gloria = {year: pd.read_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '.csv', index_col=[0,1], header=[0, 1]) for year in years}# should be 2010
@@ -95,23 +95,28 @@ for year in years:
     ############
     ## Gloria ##
     ############
-    '''
-    # make dictionaries
-    gloria_countries = lookup['countries'][['gloria', 'combined_name']].drop_duplicates();
-    gloria_countries = dict(zip(gloria_countries['gloria'], gloria_countries['combined_name']))
     
-    gloria_sectors = lookup['sectors'][['gloria_cat', 'combined_name']].drop_duplicates();
-    gloria_sectors = dict(zip(gloria_sectors['gloria_cat'], gloria_sectors['combined_name']))
+    # make dictionaries
+    gloria_countries = lookup['countries'][['gloria_code_long', 'combined_name']].drop_duplicates();
+    gloria_countries = dict(zip(gloria_countries['gloria_code_long'], gloria_countries['combined_name']))
+    
+    gloria_sectors = lookup['sectors'][['gloria', 'combined_name']].dropna(how='any').drop_duplicates();
+    gloria_sectors = dict(zip(gloria_sectors['gloria'], gloria_sectors['combined_name']))
     
     gloria_fd = lookup['final_demand'][['gloria', 'combined_name']].drop_duplicates();
     gloria_fd = dict(zip(gloria_fd['gloria'], gloria_fd['combined_name']))
     
     # rename indices
-    co2_gloria[year].index = pd.MultiIndex.from_arrays([[gloria_countries[x[0]] for x in co2_gloria[year].index.tolist()], [gloria_sectors[x[1]] for x in co2_gloria[year].index.tolist()]])
-    co2_gloria[year].columns = pd.MultiIndex.from_arrays([[gloria_countries[x[0]] for x in co2_gloria[year].columns.tolist()], [gloria_fd[x[1]] for x in co2_gloria[year].columns.tolist()]])
+    co2_gloria[year] = co2_gloria[year].T
+    # sectors
+    c = [x[0] for x in co2_gloria[year].index.tolist()]; s = [x[1][1:].replace(' industry', '') for x in co2_gloria[year].index.tolist()]
+    co2_gloria[year].index = pd.MultiIndex.from_arrays([[gloria_countries[x] for x in c], [gloria_sectors[x] for x in s]])
+    # fd
+    c = [x[0] for x in co2_gloria[year].columns.tolist()]; f = [x[1][1:] for x in co2_gloria[year].columns.tolist()]
+    co2_gloria[year].columns = pd.MultiIndex.from_arrays([[gloria_countries[x] for x in c], [gloria_fd[x] for x in f]])
     # aggregate
     co2_gloria[year] = co2_gloria[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
-    '''
+
     ##########
     ## EXIO ##
     ##########
@@ -139,7 +144,7 @@ uk = pd.DataFrame()
 for year in years:
     temp_oecd = co2_oecd[year]['United Kingdom'].sum().sum()
     temp_figaro = co2_figaro[year]['United Kingdom'].sum().sum()
-    temp_gloria = co2_gloria[year]['GBR'].sum().sum()
+    temp_gloria = co2_gloria[year]['United Kingdom'].sum().sum()
     temp_exio = co2_exio[year]['United Kingdom'].sum().sum()
     
     temp = pd.DataFrame(index=[year], columns = ['oecd', 'figaro'])#, 'gloria'])
