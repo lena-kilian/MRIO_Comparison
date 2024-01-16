@@ -25,11 +25,11 @@ else:
 mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
-years = [2010]# range(2010, 2019)
+years = range(2010, 2019)
 
 stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
-#'co2_excl_short_cycle_org_c_total_EDGAR_consistent'
-#'co2_org_short_cycle_c_total_EDGAR_consistent'
+#stressor_cat = "'co2_org_short_cycle_c_total_EDGAR_consistent'"
+
 #'co2_excl_short_cycle_org_c_total_OECD_consistent'
 #'co2_org_short_cycle_c_total_OECD_consistent'
 
@@ -149,7 +149,7 @@ for year in years:
 
     print('Footprint calculated for ' + str(year))
     
-    co2_gloria.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '_' + stressor_cat + '.csv')
+    co2_gloria.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/' + stressor_cat[1:-1] + '/CO2_' + str(year) + '.csv')
     
     print('Footprint saved for ' + str(year))
 

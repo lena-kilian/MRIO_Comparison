@@ -24,8 +24,14 @@ emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
 years = [2010]#range(2010, 2019)
 
+stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
+#'co2_excl_short_cycle_org_c_total_EDGAR_consistent'
+#'co2_org_short_cycle_c_total_EDGAR_consistent'
+#'co2_excl_short_cycle_org_c_total_OECD_consistent'
+#'co2_org_short_cycle_c_total_OECD_consistent'
+
 # Load data
-co2_gloria = {year: pd.read_csv('O:/ESCoE_Project/data/Emissions/Gloria/CO2_' + str(year) + '.csv', index_col=[0,1], header=[0, 1]) for year in years}# should be 2010
+co2_gloria = {year: pd.read_csv('O:/ESCoE_Project/data/Emissions/Gloria/' + stressor_cat[1:-1] + '/CO2_' + str(year) + '.csv', index_col=[0,1], header=[0, 1]) for year in years}# should be 2010
 co2_oecd = pickle.load(open(emissions_filepath + 'ICIO/ICIO_emissions.p', 'rb'))
 co2_figaro = pickle.load(open(emissions_filepath + 'Figaro/Figaro_emissions.p', 'rb'))
 co2_exio = pickle.load(open(emissions_filepath + 'Exiobase/Exiobase_emissions.p', 'rb'))
@@ -140,27 +146,18 @@ for year in years:
 
     
 
-uk = pd.DataFrame()
+summary = {}
 for year in years:
-    temp_oecd = co2_oecd[year]['United Kingdom'].sum().sum()
-    temp_figaro = co2_figaro[year]['United Kingdom'].sum().sum()
-    temp_gloria = co2_gloria[year]['United Kingdom'].sum().sum()
-    temp_exio = co2_exio[year]['United Kingdom'].sum().sum()
+    temp_oecd = pd.DataFrame(co2_oecd[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'oecd'})
+    temp_figaro = pd.DataFrame(co2_figaro[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'figaro'})
+    temp_gloria = pd.DataFrame(co2_gloria[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'gloria'})
+    temp_exio = pd.DataFrame(co2_exio[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio'})
     
-    temp = pd.DataFrame(index=[year], columns = ['oecd', 'figaro'])#, 'gloria'])
-    temp['oecd'] = temp_oecd * 1000
-    temp['figaro'] = temp_figaro
-    temp['gloria'] = temp_gloria
-    temp['exio'] = temp_exio
+    temp = temp_oecd.join(temp_figaro).join(temp_gloria).join(temp_exio)
+    temp['oecd'] = temp['oecd'] * 1000
     
-    uk = uk.append(temp)
+    summary[year] = temp
 
-uk = uk.T
+summary_corr = summary[year].corr()
 
-uk_change = uk.apply(lambda x: x/uk[2010]).T
-
-
-uk.T.plot(); plt.show()
-uk_change.plot(); plt.show()  
-    
-uk_corr = uk.corr()
+summary[year].plot(kind='bar')
