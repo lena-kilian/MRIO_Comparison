@@ -9,6 +9,7 @@ import pandas as pd
 from sys import platform
 import pickle
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 # set working directory
@@ -22,7 +23,7 @@ else:
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
-years = [2010]#range(2010, 2019)
+years = range(2010, 2019)
 
 stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
 #'co2_excl_short_cycle_org_c_total_EDGAR_consistent'
@@ -96,6 +97,7 @@ for year in years:
     co2_oecd[year].columns = pd.MultiIndex.from_arrays([[oecd_countries[x[0]] for x in co2_oecd[year].columns.tolist()], [oecd_fd[x[1]] for x in co2_oecd[year].columns.tolist()]])
     # aggregate
     co2_oecd[year] = co2_oecd[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
+    co2_oecd[year] = co2_oecd[year] *1000 # adjust to same unit as the others
 
     
     ############
@@ -143,21 +145,12 @@ for year in years:
     co2_exio[year].columns = pd.MultiIndex.from_arrays([[exio_countries[x[0]] for x in co2_exio[year].columns.tolist()], [exio_fd[x[1]] for x in co2_exio[year].columns.tolist()]])
     # aggregate
     co2_exio[year] = co2_exio[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
-
     
+# Save all
+co2_all = {}
+co2_all['gloria'] = co2_gloria
+co2_all['exio'] = co2_exio
+co2_all['figaro'] = co2_figaro
+co2_all['oecd'] = co2_oecd
 
-summary = {}
-for year in years:
-    temp_oecd = pd.DataFrame(co2_oecd[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'oecd'})
-    temp_figaro = pd.DataFrame(co2_figaro[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'figaro'})
-    temp_gloria = pd.DataFrame(co2_gloria[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'gloria'})
-    temp_exio = pd.DataFrame(co2_exio[year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio'})
-    
-    temp = temp_oecd.join(temp_figaro).join(temp_gloria).join(temp_exio)
-    temp['oecd'] = temp['oecd'] * 1000
-    
-    summary[year] = temp
-
-summary_corr = summary[year].corr()
-
-summary[year].plot(kind='bar')
+pickle.dump(co2_all, open(emissions_filepath + 'Emissions_aggregated_all.p', 'wb'))
