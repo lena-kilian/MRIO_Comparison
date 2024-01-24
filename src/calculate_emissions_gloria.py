@@ -25,7 +25,7 @@ else:
 mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
-years = [2014] #range(2014, 2017) #range(2010, 2019)
+years = [2016] #range(2014, 2017) #range(2010, 2019)
 
 stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
 #stressor_cat = "'co2_org_short_cycle_c_total_EDGAR_consistent'"
