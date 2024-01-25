@@ -10,9 +10,6 @@ from sys import platform
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
-from sklearn.cluster import KMeans
-import geopandas as gpd
 
 # set working directory
 # make different path depending on operating system
@@ -24,6 +21,7 @@ else:
 # define filepaths
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
+plot_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/plots/'
 
 
 co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'rb'))
@@ -72,8 +70,10 @@ correlation = correlation.loc[correlation['combo'].isin(data_comb) == True]
 correlation = correlation.set_index(['sector', 'combo']).rename(columns={0:'corr'})[['corr']]
 
 correlation.unstack('combo').plot(kind='bar')
-sns.scatterplot(data = correlation.reset_index(), x='combo',y='corr',  hue='sector')
+sns.scatterplot(data = correlation.reset_index(), x='combo',y='corr',  hue='sector'); plt.legend(bbox_to_anchor=(1,1)); plt.show()
 sns.boxplot(data = correlation.reset_index().sort_values('corr'), x='combo',y='corr'); plt.xticks(rotation=90)
+plt.savefig(plot_filepath + 'boxplot_sector_correlation.png', dpi=200, bbox_inches='tight')
+
 
 correlation = correlation.unstack('combo')
 correlation[('dataset', 'mean')] = correlation.mean(1)
@@ -82,6 +82,8 @@ correlation = correlation.sort_values(('dataset', 'mean'), ascending=False).T.so
 
 corr_summary_sector = correlation[['corr']].stack(level=1).mean(axis=0, level=0).sort_values('corr', ascending = False)
 corr_summary_sector.plot(kind='bar')
+plt.savefig(plot_filepath + 'barplot_sector_correlation_mean_bysector.png', dpi=200, bbox_inches='tight')
 
 corr_summary_combo = correlation[['corr']].stack(level=1).mean(axis=0, level=1).sort_values('corr', ascending = False)
 corr_summary_combo.plot(kind='bar')
+plt.savefig(plot_filepath + 'barplot_sector_correlation_mean_bydatapair.png', dpi=200, bbox_inches='tight')

@@ -10,7 +10,6 @@ from sys import platform
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 from sklearn.cluster import KMeans
 import geopandas as gpd
 
@@ -24,6 +23,7 @@ else:
 # define filepaths
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
+plot_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/plots/'
 
 
 co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'rb'))
@@ -71,9 +71,18 @@ correlation['combo'] = correlation['level_0'] + ', ' + correlation['level_2']
 correlation = correlation.loc[correlation['combo'].isin(data_comb) == True]
 correlation = correlation.set_index(['country', 'combo']).rename(columns={0:'corr'})[['corr']]
 
-correlation.unstack('combo').plot(kind='bar')
-sns.scatterplot(data = correlation.reset_index(), x='combo',y='corr',  hue='country')
+
+corr_summary_country = correlation.mean(axis=0, level=0).sort_values('corr', ascending = False)
+corr_summary_country.plot(kind='bar')
+plt.savefig(plot_filepath + 'barplot_country_correlation_bydatapair.png', dpi=200, bbox_inches='tight')
+
+corr_summary_combo = correlation.mean(axis=0, level=1).sort_values('corr', ascending = False)
+corr_summary_combo.plot(kind='bar')
+plt.savefig(plot_filepath + 'barplot_country_correlation_bycountry.png', dpi=200, bbox_inches='tight')
+
+#sns.scatterplot(data = correlation.reset_index(), x='combo',y='corr',  hue='country')
 sns.boxplot(data = correlation.reset_index().sort_values('corr'), x='combo',y='corr'); plt.xticks(rotation=90)
+plt.savefig(plot_filepath + 'boxplot_country_correlation_bydatapair.png', dpi=200, bbox_inches='tight')
 
 correlation = correlation.unstack('combo')
 correlation[('dataset', 'mean')] = correlation.mean(1)
@@ -86,15 +95,15 @@ plot = world.set_index('name').join(
 
 for item in plot.loc[:, ('corr', 'oecd, gloria'):].columns:
     plot.plot(column=item, legend=True, edgecolor='black', linewidth=0.1, cmap='RdBu'); 
-    plt.title(str(item)); plt.show()
+    plt.title(str(item)); 
+    plt.savefig(plot_filepath + 'map_world_country_correlation.png', dpi=200, bbox_inches='tight')
     
     plot.plot(column=item, legend=True, edgecolor='black', linewidth=0.1, cmap='RdBu'); 
-    plt.xlim(-15, 50); plt.ylim(30, 85); plt.title(str(item)); plt.show()
+    plt.xlim(-15, 50); plt.ylim(30, 85); plt.title(str(item)); 
+    plt.savefig(plot_filepath + 'map_europe_country_correlation.png', dpi=200, bbox_inches='tight')
 
 
 # Import Kmeans Library
-
-
 # use the elbow method
 wcss = []
 results = correlation['corr']
@@ -124,11 +133,6 @@ for i in [5]:
     sns.boxplot(ax=ax, data=results, x='level_0', y=0, hue='cluster', dodge=False); 
     plt.xticks(rotation=90); 
     plt.title('No. clusters: ' + str(i))
-    plt.show()
+    plt.savefig(plot_filepath + 'boxplot_country_correlation_bycountry.png', dpi=200, bbox_inches='tight')
 
 
-corr_summary_country = correlation.mean(axis=0, level=0).sort_values('corr', ascending = False)
-corr_summary_country.plot(kind='bar')
-
-corr_summary_combo = correlation.mean(axis=0, level=1).sort_values('corr', ascending = False)
-corr_summary_combo.plot(kind='bar')
