@@ -65,7 +65,6 @@ def indirect_footprint_SUT_exio(S, U, Y, stressor):
     
     
     s_cols = S.columns.tolist()
-    u_cols = U.columns.tolist()
     y_cols = Y.columns
     
     # calculate emissions
@@ -97,7 +96,7 @@ def indirect_footprint_gloria(S, U, Y, stressor):
     # save column names
     su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.index.tolist()] + [x[0] for x in U.index.tolist()],
                                         [x[1] for x in S.index.tolist()] + [x[1] for x in U.index.tolist()]])
-    u_cols = U.columns.tolist()
+    s_cols = S.columns.tolist()
 
     # calculate gloria footprint
     Z = make_Z_from_S_U(S, U) 
@@ -120,6 +119,6 @@ def indirect_footprint_gloria(S, U, Y, stressor):
         print(a, footprint[a].sum())
     
     footprint = pd.DataFrame(footprint, index=Y.columns, columns=su_idx)
-    footprint = footprint[u_cols]
+    footprint = footprint[s_cols]
     
     return footprint
