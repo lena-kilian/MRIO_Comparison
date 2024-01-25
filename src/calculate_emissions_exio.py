@@ -49,10 +49,11 @@ for year in years:
     # calculate exio footprint
 
     S = exio_data['S']; U = exio_data['U']; Y = exio_data['Y']; stressor = exio_data['co2'].iloc[:,0]
-    co2_exio = cef.indirect_footprint_SUT(S, U, Y, stressor)
+    co2_exio = cef.indirect_footprint_SUT_exio(S, U, Y, stressor)
     print(year)
     
     co2_exio.to_csv(emissions_filepath + 'Exiobase/Exiobase_emissions_' + str(year) + '.csv')
+    print(year, co2_exio.loc['GB', 'GB'].sum().sum())
     
     results[year] = co2_exio
 

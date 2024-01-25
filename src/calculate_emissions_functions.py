@@ -49,16 +49,22 @@ def make_Z_from_S_U(S, U):
     
     Z = np.zeros(shape = (np.size(S, 0)+np.size(U, 0), np.size(S, 1)+np.size(U, 1)))
     
-    Z[np.size(S, 0):, 0:np.size(U, 1)] = U
     Z[0:np.size(S, 0), np.size(U, 1):] = S
+    Z[np.size(S, 0):, 0:np.size(U, 1)] = U
         
     return Z
 
 
-def indirect_footprint_SUT(S, U, Y, stressor):
+def indirect_footprint_SUT_exio(S, U, Y, stressor):
     # make column names
-    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
+    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.index.tolist()] + [x[0] for x in U.index.tolist()],
+                                        [x[1] for x in S.index.tolist()] + [x[1] for x in U.index.tolist()]])
+    
+    su_col = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
                                         [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    
+    
+    s_cols = S.columns.tolist()
     u_cols = U.columns.tolist()
     y_cols = Y.columns
     
@@ -82,15 +88,15 @@ def indirect_footprint_SUT(S, U, Y, stressor):
         print(a)
     
     footprint = pd.DataFrame(footprint, index=y_cols, columns=su_idx)
-    footprint = footprint[u_cols]
+    footprint = footprint[s_cols]
      
     return footprint
 
 def indirect_footprint_gloria(S, U, Y, stressor):
     
     # save column names
-    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
-                                        [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
+    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.index.tolist()] + [x[0] for x in U.index.tolist()],
+                                        [x[1] for x in S.index.tolist()] + [x[1] for x in U.index.tolist()]])
     u_cols = U.columns.tolist()
 
     # calculate gloria footprint
