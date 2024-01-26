@@ -59,7 +59,8 @@ for country in summary.index.levels[0].tolist():
     summary.loc[country,:].plot()
     plt.title(country)
     plt.savefig(plot_filepath + 'lineplot_country_emissions_' + country + '.png', dpi=200, bbox_inches='tight')
-
+    plt.show()
+    
 #####################
 ## Change in trend ##
 #####################
@@ -115,6 +116,7 @@ fig, ax = plt.subplots(figsize=(25,5))
 sns.boxplot(ax=ax, data=temp, x='country', y='Abs_diff', hue='dataset', showfliers=False); 
 plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); 
 plt.savefig(plot_filepath + 'boxplot_country_difference.png', dpi=200, bbox_inches='tight')
+plt.show()
 
 summary_diff = order[['Abs_diff']]
 summary_diff['Under'] = 'Other'
@@ -126,11 +128,14 @@ sns.barplot(data=change6.reset_index(), x='country', y='pct_same', hue='dataset'
 change_country = change6.mean(axis=0, level='country').sort_values('pct_same', ascending=False)
 change_data = change6.mean(axis=0, level='dataset').sort_values('pct_same', ascending=False)
 
-sns.boxplot(data=change6.swaplevel(axis=0).loc[change_country.index.tolist()].reset_index(), x='country', y='pct_same'); plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1));
+fig, ax = plt.subplots(figsize=(15, 5))
+sns.boxplot(ax=ax, data=change6.swaplevel(axis=0).loc[change_country.index.tolist()].reset_index(), x='country', y='pct_same'); plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1));
 plt.savefig(plot_filepath + 'boxplot_country_pctsame_bycountry.png', dpi=200, bbox_inches='tight')
+plt.show()
 
 sns.boxplot(data=change6.loc[change_data.index.tolist()].reset_index(), x='dataset', y='pct_same'); plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.show()
 plt.savefig(plot_filepath + 'boxplot_country_pctsame_bydatapair.png', dpi=200, bbox_inches='tight')
+plt.show()
 
 sns.scatterplot(data=change6.swaplevel(axis=0).loc[change_country.index.tolist()].reset_index(), x='country', y='pct_same', hue='dataset'); plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.show()
 plt.savefig(plot_filepath + 'scatterlot_country_pctsame.png', dpi=200, bbox_inches='tight')

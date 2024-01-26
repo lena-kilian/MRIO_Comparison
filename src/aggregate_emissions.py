@@ -8,9 +8,6 @@ Created on Wed Dec  6 10:30:46 2023
 import pandas as pd
 from sys import platform
 import pickle
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 
 # set working directory
 # make different path depending on operating system
