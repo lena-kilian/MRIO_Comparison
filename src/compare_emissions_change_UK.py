@@ -134,6 +134,8 @@ data_sector['sector_short'] = data_sector['sector'].str[:10]
 sns.boxplot(data=data_sector, x='sector_short', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.show()
 sns.boxplot(data=data_sector, x='sector_short', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.ylim(0, 1); plt.show()
 
+sns.scatterplot(data=data_sector, x='range', y='mean_ghg', hue='sector_short'); plt.yscale('log'); plt.xscale('log'); plt.legend(bbox_to_anchor=(1,1))
+
 # Compare pariwise
 
 change5 = change.set_index(['country', 'dataset']).unstack('dataset').stack('year')
