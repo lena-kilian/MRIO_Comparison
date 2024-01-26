@@ -82,28 +82,57 @@ for pair in data_comb:
 ## Change in trend ##
 #####################
 
-temp = total.unstack('year').stack(level=0)
-change = temp[years[1:]]
+# by country (of production)
+data_country = total.sum(level=['country', 'year']).unstack('year').stack(level=0) + 0.01
+change = data_country[years[1:]]
 for year in years[1:]:
-    change[year] = temp[year] / temp[year - 1]
+    change[year] = data_country[year] / data_country[year - 1]
     
 change = change.reset_index().rename(columns={'level_1':'dataset'})
 
-# Compare all
-
-change2 = change#.loc[change['dataset'] != 'gloria']
-
-change3 = change2.groupby(['country', 'sector']).describe().stack(level=0)[['min', 'max', 'mean']]
+change3 = change.groupby(['country']).describe().stack(level=0)[['min', 'max', 'mean']]
 change3['range'] = change3['max'] - change3['min']
 change3['Same_direction'] = False
 change3.loc[((change3['min']>1) & (change3['max']>1) |
              (change3['min']<1) & (change3['max']<1) |
              (change3['min']==1) & (change3['max']==1)), 'Same_direction'] = True
 
-temp = change3[['Same_direction', 'range']].reset_index()
-sns.boxplot(data=temp, x='country', y='range', hue='Same_direction', showfliers=False); plt.xticks(rotation=90); plt.show()
+ghg = pd.DataFrame(total.sum(level=['country', 'year']).mean(axis=1)).rename(columns={0:'mean_ghg'}).apply(lambda x: pd.to_numeric(x, errors='coerce'))
+ghg.loc[ghg['mean_ghg'] < 0, 'mean_ghg'] = 0
+data_country = change3[['Same_direction', 'range']].reset_index()
+data_country = data_country.set_index(['country', 'year']).join(ghg).reset_index().sort_values('mean_ghg', ascending=False)
 
-change4 = change3.reset_index().groupby(['country', 'Same_direction']).describe()['range'][['count', 'min', 'max']].unstack(level=1).fillna(0)
+# data_country = data_country.drop('mean_ghg', axis=1).join(data_country.groupby('country').mean()[['mean_ghg']])
+data_country = data_country.set_index('country').reset_index().sort_values('mean_ghg', ascending=False)
+sns.boxplot(data=data_country, x='country', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.show()
+sns.boxplot(data=data_country, x='country', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.ylim(0, 1); plt.show()
+
+sns.scatterplot(data=data_country, x='range', y='mean_ghg', hue='country'); plt.yscale('log'); plt.xscale('log'); plt.legend(bbox_to_anchor=(1,1))
+
+# by sector
+data_sector = total.sum(level=['sector', 'year']).unstack('year').stack(level=0) + 0.01
+change = data_sector[years[1:]]
+for year in years[1:]:
+    change[year] = data_sector[year] / data_sector[year - 1]
+    
+change = change.reset_index().rename(columns={'level_1':'dataset'})
+
+change3 = change.groupby(['sector']).describe().stack(level=0)[['min', 'max', 'mean']]
+change3['range'] = change3['max'] - change3['min']
+change3['Same_direction'] = False
+change3.loc[((change3['min']>1) & (change3['max']>1) |
+             (change3['min']<1) & (change3['max']<1) |
+             (change3['min']==1) & (change3['max']==1)), 'Same_direction'] = True
+
+ghg = pd.DataFrame(total.sum(level=['sector', 'year']).mean(axis=1)).rename(columns={0:'mean_ghg'}).apply(lambda x: pd.to_numeric(x, errors='coerce'))
+ghg.loc[ghg['mean_ghg'] < 0, 'mean_ghg'] = 0
+data_sector = change3[['Same_direction', 'range']].reset_index()
+data_sector = data_sector.set_index(['sector', 'year']).join(ghg).reset_index().sort_values('mean_ghg', ascending=False)
+
+data_sector = data_sector.set_index('sector').drop('mean_ghg', axis=1).join(data_sector.groupby('sector').mean()[['mean_ghg']]).reset_index().sort_values('mean_ghg', ascending=False)
+data_sector['sector_short'] = data_sector['sector'].str[:10]
+sns.boxplot(data=data_sector, x='sector_short', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.show()
+sns.boxplot(data=data_sector, x='sector_short', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.ylim(0, 1); plt.show()
 
 # Compare pariwise
 
