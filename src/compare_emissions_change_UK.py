@@ -10,6 +10,7 @@ from sys import platform
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
+import copy as cp
 import numpy as np
 
 # set working directory
@@ -35,6 +36,13 @@ data_comb = ['oecd, figaro', 'oecd, exio', 'oecd, gloria',
              'figaro, exio', 'figaro, gloria',
              'exio, gloria']
 
+data_comb_cols = [(x.split(', ')[0], x.split(', ')[1]) for x in data_comb]
+
+# change countries and sectors to ukmrio compatible
+lookup = pd.read_excel('O:/ESCoE_Project/data/lookups/combined_to_ukmrio_lookup.xlsx', sheet_name=None)
+
+country_dict = dict(zip(lookup['countries']['combined'], lookup['countries']['ukmrio']))
+sector_dict = dict(zip(lookup['sectors']['combined_name'], lookup['sectors']['ukmrio_name']))
 
 ###############
 ## Summarise ##
@@ -51,11 +59,19 @@ for year in years:
     
     temp = temp_oecd.join(temp_figaro).join(temp_gloria).join(temp_exio)
     
+    # aggregate to ukmrio levels
+    c_new = [country_dict[x[0]] for x in temp.index.tolist()]
+    s_new = [sector_dict[x[1]] for x in temp.index.tolist()]
+    temp.index = pd.MultiIndex.from_arrays([c_new, s_new])
+    
+    temp = temp.sum(axis=0, level=[0,1])
+    
     temp['year'] = year
     
     total = total.append(temp.reset_index())
     
 total = total.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'sector', 'year']).fillna(0)
+
 
 domestic = total.loc[country, :]
 imports = total.drop(country)
@@ -63,204 +79,553 @@ imports = total.drop(country)
 for item in ['total', 'domestic', 'imports']:
     data = eval(item).reset_index().groupby(['year']).sum()[datasets]
     data.plot()
-    plt.title(country + ' ' + item)
+    plt.title(country + ' ' + item); plt.legend(bbox_to_anchor=(1,1))
+    plt.ylabel('Carbon emissions')
     plt.savefig(plot_filepath + country + '_lineplot_country_emissions_' + item + '.png', dpi=200, bbox_inches='tight')
 
+    data = data.T
+    temp = cp.copy(data)
+    for year in data.columns.tolist()[1:]:
+        data[str(year-1) + '-' + str(year)] = (temp[year] - temp[year-1]) / temp[year-1] * 100
+    data = data.drop(years, axis=1)
+    data.T.plot(kind='bar')
+    plt.axhline(0, linestyle='--', c='k')
+    plt.title(country + ' ' + item); plt.legend(bbox_to_anchor=(1,1)); plt.ylabel('Percentage change')
+    plt.savefig(plot_filepath + country + '_lineplot_country_emissions_change_' + item + '.png', dpi=200, bbox_inches='tight')
 
-for pair in data_comb:
-    sns.scatterplot(data=total, x=pair.split(', ')[0], y=pair.split(', ')[0], hue='country', style='year', legend=False)
-    plt.yscale('log'); plt.xscale('log')
-    plt.title('Total: ' + pair)
-    plt.show()
-    
-    sns.scatterplot(data=imports, x=pair.split(', ')[0], y=pair.split(', ')[0], hue='country', style='year', legend=False)
-    plt.yscale('log'); plt.xscale('log')
-    plt.title('Imports: ' + pair)
-    plt.show()
-    
-#####################
-## Change in trend ##
-#####################
-
-# by country (of production)
-data_country = total.sum(level=['country', 'year']).unstack('year').stack(level=0) + 0.01
-change = data_country[years[1:]]
-for year in years[1:]:
-    change[year] = data_country[year] / data_country[year - 1]
-    
-change = change.reset_index().rename(columns={'level_1':'dataset'})
-
-change3 = change.groupby(['country']).describe().stack(level=0)[['min', 'max', 'mean']]
-change3['range'] = change3['max'] - change3['min']
-change3['Same_direction'] = False
-change3.loc[((change3['min']>1) & (change3['max']>1) |
-             (change3['min']<1) & (change3['max']<1) |
-             (change3['min']==1) & (change3['max']==1)), 'Same_direction'] = True
-
-ghg = pd.DataFrame(total.sum(level=['country', 'year']).mean(axis=1)).rename(columns={0:'mean_ghg'}).apply(lambda x: pd.to_numeric(x, errors='coerce'))
-ghg.loc[ghg['mean_ghg'] < 0, 'mean_ghg'] = 0
-data_country = change3[['Same_direction', 'range']].reset_index()
-data_country = data_country.set_index(['country', 'year']).join(ghg).reset_index().sort_values('mean_ghg', ascending=False)
-
-# data_country = data_country.drop('mean_ghg', axis=1).join(data_country.groupby('country').mean()[['mean_ghg']])
-data_country = data_country.set_index('country').reset_index().sort_values('mean_ghg', ascending=False)
-sns.boxplot(data=data_country, x='country', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.show()
-sns.boxplot(data=data_country, x='country', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.ylim(0, 1); plt.show()
-
-sns.scatterplot(data=data_country, x='range', y='mean_ghg', hue='country'); plt.yscale('log'); plt.xscale('log'); plt.legend(bbox_to_anchor=(1,1))
-
-# by sector
-data_sector = total.sum(level=['sector', 'year']).unstack('year').stack(level=0) + 0.01
-change = data_sector[years[1:]]
-for year in years[1:]:
-    change[year] = data_sector[year] / data_sector[year - 1]
-    
-change = change.reset_index().rename(columns={'level_1':'dataset'})
-
-change3 = change.groupby(['sector']).describe().stack(level=0)[['min', 'max', 'mean']]
-change3['range'] = change3['max'] - change3['min']
-change3['Same_direction'] = False
-change3.loc[((change3['min']>1) & (change3['max']>1) |
-             (change3['min']<1) & (change3['max']<1) |
-             (change3['min']==1) & (change3['max']==1)), 'Same_direction'] = True
-
-ghg = pd.DataFrame(total.sum(level=['sector', 'year']).mean(axis=1)).rename(columns={0:'mean_ghg'}).apply(lambda x: pd.to_numeric(x, errors='coerce'))
-ghg.loc[ghg['mean_ghg'] < 0, 'mean_ghg'] = 0
-data_sector = change3[['Same_direction', 'range']].reset_index()
-data_sector = data_sector.set_index(['sector', 'year']).join(ghg).reset_index().sort_values('mean_ghg', ascending=False)
-
-data_sector = data_sector.set_index('sector').drop('mean_ghg', axis=1).join(data_sector.groupby('sector').mean()[['mean_ghg']]).reset_index().sort_values('mean_ghg', ascending=False)
-data_sector['sector_short'] = data_sector['sector'].str[:10]
-sns.boxplot(data=data_sector, x='sector_short', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.show()
-sns.boxplot(data=data_sector, x='sector_short', y='range'); plt.legend(bbox_to_anchor=(1,1)); plt.xticks(rotation=90); plt.ylim(0, 1); plt.show()
-
-sns.scatterplot(data=data_sector, x='range', y='mean_ghg', hue='sector_short'); plt.yscale('log'); plt.xscale('log'); plt.legend(bbox_to_anchor=(1,1))
-
-# Compare pariwise
-
-change5 = change.set_index(['country', 'dataset']).unstack('dataset').stack('year')
-change5.columns = pd.MultiIndex.from_arrays([['dataset']*len(datasets), change5.columns.tolist()])
-
-for pair in data_comb:
-    ds0 = pair.split(', ')[0]; ds1 = pair.split(', ')[1]
-    change5[('Same_direction', ds0 + '_' + ds1)] = False
-    change5.loc[((change5[('dataset', ds0)]>1) & (change5[('dataset', ds1)]>1) |
-                 (change5[('dataset', ds0)]<1) & (change5[('dataset', ds1)]<1) |
-                 (change5[('dataset', ds0)]==1) & (change5[('dataset', ds1)]==1)), 
-                ('Same_direction', ds0 + '_' + ds1)] = True
-    change5[('Abs_diff', ds0 + '_' + ds1)] = np.abs(change5[('dataset', ds0)] - change5[('dataset', ds1)])
-    
-count = change5[['Same_direction']].stack(level=1).reset_index().rename(columns={'level_2':'dataset'}).groupby(['country', 'dataset', 'Same_direction']).count().unstack('Same_direction').droplevel(axis=1, level=0).fillna(0)
-count['pct_same'] = count[True] / (count[True] + count[False])*100
-change6 = change5[['Abs_diff']].unstack('country').describe().T[['min', 'max', 'mean', 'std']].droplevel(axis=0, level=0)
-change6.index.names = ['dataset', 'country']
-
-change6 = change6.join(count[['pct_same']])
-
-temp = change5['Abs_diff'].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Abs_diff'})
-order = temp.groupby('country').mean().sort_values('Abs_diff', ascending=True)
-temp = temp.set_index(['country', 'year']).loc[order.index.tolist()].reset_index()
-fig, ax = plt.subplots(figsize=(25,5))
-sns.boxplot(ax=ax, data=temp, x='country', y='Abs_diff', hue='dataset', showfliers=False); 
-plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); 
-plt.savefig(plot_filepath + 'UK_boxplot_country_difference.png', dpi=200, bbox_inches='tight')
-
-total_diff = order[['Abs_diff']]
-total_diff['Under'] = 'Other'
-for i in [50, 20, 10, 5, 1]:
-    total_diff.loc[total_diff['Abs_diff'] <= i/100, 'Under'] = str(i) + '%'
-
-sns.barplot(data=change6.reset_index(), x='country', y='pct_same', hue='dataset'); plt.xticks(rotation=90); plt.show()
-
-change_country = change6.mean(axis=0, level='country').sort_values('pct_same', ascending=False)
-change_data = change6.mean(axis=0, level='dataset').sort_values('pct_same', ascending=False)
-
-sns.boxplot(data=change6.swaplevel(axis=0).loc[change_country.index.tolist()].reset_index(), x='country', y='pct_same'); plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1));
-plt.savefig(plot_filepath + 'UK_boxplot_country_pctsame_bycountry.png', dpi=200, bbox_inches='tight')
-
-sns.boxplot(data=change6.loc[change_data.index.tolist()].reset_index(), x='dataset', y='pct_same'); plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.show()
-plt.savefig(plot_filepath + 'UK_boxplot_country_pctsame_bydatapair.png', dpi=200, bbox_inches='tight')
-
-sns.scatterplot(data=change6.swaplevel(axis=0).loc[change_country.index.tolist()].reset_index(), x='country', y='pct_same', hue='dataset'); plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.show()
-plt.savefig(plot_filepath + 'UK_scatterlot_country_pctsame.png', dpi=200, bbox_inches='tight')
-
-
- 
 #################
 ## Correlation ##
 #################
-    
-correlation = pd.DataFrame();
-for country in summary.index.levels[0].tolist():
-    temp = summary.loc[country,:].corr()
-    temp['country'] = country
-    correlation = correlation.append(temp.set_index('country', append=True))
-    
-correlation = correlation.stack().reset_index()
-correlation['combo'] = correlation['level_0'] + ', ' + correlation['level_2']
-correlation = correlation.loc[correlation['combo'].isin(data_comb) == True]
-correlation = correlation.set_index(['country', 'combo']).rename(columns={0:'corr'})[['corr']]
+
+corr_total_ghg = total.groupby('year').sum().corr().unstack()[data_comb_cols]
+
+corr_imports_ghg = imports.groupby('year').sum().corr().unstack()[data_comb_cols]
+
+temp = total.mean(axis=0, level=['country', 'sector']).mean(axis=1)
+corr_all = (total + 0.01).groupby(['country', 'sector']).corr().unstack(level=2)[data_comb_cols]
+corr_all[('mean', 'mean')] = temp
+corr_all = corr_all.sort_values(('mean', 'mean'), ascending=False)
+
+temp = total.mean(axis=0, level=['country', 'sector']).sum(axis=0, level='country').mean(axis=1)
+corr_country = total.sum(axis=0, level=['country', 'year']).groupby(['country']).corr().unstack(level=1)[data_comb_cols]
+corr_country[('mean', 'mean')] = temp
+corr_country = corr_country.sort_values(('mean', 'mean'), ascending=False)
+  
+temp = total.mean(axis=0, level=['country', 'sector']).sum(axis=0, level='sector').mean(axis=1)
+corr_sector_total = total.sum(axis=0, level=['sector', 'year']).groupby(['sector']).corr().unstack(level=1)[data_comb_cols]
+corr_sector_total[('mean', 'mean')] = temp 
+corr_sector_total = corr_sector_total.sort_values(('mean', 'mean'), ascending=False)
+
+temp = imports.mean(axis=0, level=['country', 'sector']).sum(axis=0, level='sector').mean(axis=1)
+corr_sector_imports = imports.sum(axis=0, level=['sector', 'year']).groupby(['sector']).corr().unstack(level=1)[data_comb_cols]
+corr_sector_imports[('mean', 'mean')] = temp 
+corr_sector_imports = corr_sector_imports.sort_values(('mean', 'mean'), ascending=False)
+
+temp = imports.mean(axis=0, level=['country', 'sector']).sum(axis=0, level='sector').mean(axis=1)
+corr_sector_imports = imports.sum(axis=0, level=['sector', 'year']).groupby(['sector']).corr().unstack(level=1)[data_comb_cols]
+corr_sector_imports[('mean', 'mean')] = temp 
+corr_sector_imports = corr_sector_imports.sort_values(('mean', 'mean'), ascending=False)
+ 
+####################
+## Change in time ##
+####################
+
+years = range(2011, 2019)
+
+# total ghg - all
+change_total_ghg = total.groupby('year').sum().T
+temp = cp.copy(change_total_ghg)
+for year in years:
+    change_total_ghg[year] = temp[year] / temp[year-1]
+change_total_ghg = change_total_ghg.loc[:,2011:].T
+for item in data_comb:
+    change_total_ghg[item] = 0
+    data0 = item.split(', ')[0]; data1 = item.split(', ')[1]
+    change_total_ghg.loc[((change_total_ghg[data0] == 1) & (change_total_ghg[data1] == 1) |
+                          (change_total_ghg[data0] > 1) & (change_total_ghg[data1] > 1) |
+                          (change_total_ghg[data0] < 1) & (change_total_ghg[data1] < 1)), item] = 1
+change_total_ghg = change_total_ghg[data_comb].sum().reset_index().rename(columns={'index':'data', 0:'Same_direction'})
+change_total_ghg['Pct_same'] = change_total_ghg['Same_direction'] / len(years) * 100
+
+# total ghg - imports
+change_imports_ghg = imports.groupby('year').sum().T
+temp = cp.copy(change_imports_ghg)
+for year in years:
+    change_imports_ghg[year] = temp[year] / temp[year-1]
+change_imports_ghg = change_imports_ghg.loc[:,2011:].T
+for item in data_comb:
+    change_imports_ghg[item] = 0
+    data0 = item.split(', ')[0]; data1 = item.split(', ')[1]
+    change_imports_ghg.loc[((change_imports_ghg[data0] == 1) & (change_imports_ghg[data1] == 1) |
+                          (change_imports_ghg[data0] > 1) & (change_imports_ghg[data1] > 1) |
+                          (change_imports_ghg[data0] < 1) & (change_imports_ghg[data1] < 1)), item] = 1
+change_imports_ghg = change_imports_ghg[data_comb].sum().reset_index().rename(columns={'index':'data', 0:'Same_direction'})
+change_imports_ghg['Pct_same'] = change_imports_ghg['Same_direction'] / len(years) * 100
+
+# sector x country 
+change_all = (total + 0.01).unstack(['country', 'sector']).T
+temp = cp.copy(change_all)
+for year in years:
+    change_all[year] = temp[year] / temp[year-1]
+change_all = change_all.loc[:,2011:].unstack(level=['country', 'sector']).T
+for item in data_comb:
+    change_all[item] = 0
+    data0 = item.split(', ')[0]; data1 = item.split(', ')[1]
+    change_all.loc[((change_all[data0] == 1) & (change_all[data1] == 1) |
+                          (change_all[data0] > 1) & (change_all[data1] > 1) |
+                          (change_all[data0] < 1) & (change_all[data1] < 1)), item] = 1
+change_all = change_all[data_comb].sum(level=['country', 'sector']).apply(lambda x: x/len(years) * 100)
+
+# country 
+change_country = (total + 0.01).sum(level=['country', 'year']).unstack(['country']).T
+temp = cp.copy(change_country)
+for year in years:
+    change_country[year] = temp[year] / temp[year-1]
+change_country = change_country.loc[:,2011:].unstack(level=['country']).T
+for item in data_comb:
+    change_country[item] = 0
+    data0 = item.split(', ')[0]; data1 = item.split(', ')[1]
+    change_country.loc[((change_country[data0] == 1) & (change_country[data1] == 1) |
+                          (change_country[data0] > 1) & (change_country[data1] > 1) |
+                          (change_country[data0] < 1) & (change_country[data1] < 1)), item] = 1
+change_country = change_country[data_comb].sum(level=['country']).apply(lambda x: x/len(years) * 100)
+  
+# sector - all
+change_sector_total = (total + 0.01).sum(level=['sector', 'year']).unstack(['sector']).T
+temp = cp.copy(change_sector_total)
+for year in years:
+    change_sector_total[year] = temp[year] / temp[year-1]
+change_sector_total = change_sector_total.loc[:,2011:].unstack(level=['sector']).T
+for item in data_comb:
+    change_sector_total[item] = 0
+    data0 = item.split(', ')[0]; data1 = item.split(', ')[1]
+    change_sector_total.loc[((change_sector_total[data0] == 1) & (change_sector_total[data1] == 1) |
+                             (change_sector_total[data0] > 1) & (change_sector_total[data1] > 1) |
+                             (change_sector_total[data0] < 1) & (change_sector_total[data1] < 1)), item] = 1
+change_sector_total = change_sector_total[data_comb].sum(level=['sector']).apply(lambda x: x/len(years) * 100)
+
+# sector - imports
+change_sector_imports = (imports + 0.01).sum(level=['sector', 'year']).unstack(['sector']).T
+temp = cp.copy(change_sector_imports)
+for year in years:
+    change_sector_imports[year] = temp[year] / temp[year-1]
+change_sector_imports = change_sector_imports.loc[:,2011:].unstack(level=['sector']).T
+for item in data_comb:
+    change_sector_imports[item] = 0
+    data0 = item.split(', ')[0]; data1 = item.split(', ')[1]
+    change_sector_imports.loc[((change_sector_imports[data0] == 1) & (change_sector_imports[data1] == 1) |
+                          (change_sector_imports[data0] > 1) & (change_sector_imports[data1] > 1) |
+                          (change_sector_imports[data0] < 1) & (change_sector_imports[data1] < 1)), item] = 1
+change_sector_imports = change_sector_imports[data_comb].sum(level=['sector']).apply(lambda x: x/len(years) * 100)
+
+########################################
+## Root Mean Squared Percentage Error ##
+########################################
+
+def rmspe(x, y):
+    s = 0
+    for i in range(len(x)):
+        s += ((x[i]-y[i])/x[i]*100)**2
+    e = np.sqrt(s/len(x))
+    return e
+
+ds = ['oecd', 'exio', 'figaro', 'gloria']
+data_list = []
+for item1 in ds:
+    for item2 in ds:
+        if item1 == item2:
+            pass
+        else:
+            data_list.append([item1, item2])
+            
+# total ghg - all
+temp = total.groupby('year').sum()
+rmspe_total_ghg = pd.DataFrame()
+for item in data_comb_cols:
+    temp2 = pd.DataFrame(columns=['data', 'RMSPE1', 'RMSPE2'], index=[0])
+    temp2.loc[0, 'data'] = item[0] + ', ' + item[1]
+    temp2.loc[0, 'RMSPE1'] = rmspe(temp[item[0]].tolist(), temp[item[1]].tolist())
+    temp2.loc[0, 'RMSPE2'] = rmspe(temp[item[1]].tolist(), temp[item[0]].tolist())
+    rmspe_total_ghg = rmspe_total_ghg.append(temp2)
+rmspe_total_ghg['rmspe'] = (rmspe_total_ghg['RMSPE1'] + rmspe_total_ghg['RMSPE2']) / 2
+
+# total ghg - imports
+temp = imports.groupby('year').sum()
+rmspe_imports_ghg = pd.DataFrame()
+for item in data_comb_cols:
+    temp2 = pd.DataFrame(columns=['data', 'RMSPE1', 'RMSPE2'], index=[0])
+    temp2.loc[0, 'data'] = item[0] + ', ' + item[1]
+    temp2.loc[0, 'RMSPE1'] = rmspe(temp[item[0]].tolist(), temp[item[1]].tolist())
+    temp2.loc[0, 'RMSPE2'] = rmspe(temp[item[1]].tolist(), temp[item[0]].tolist())
+    rmspe_imports_ghg = rmspe_imports_ghg.append(temp2)
+rmspe_imports_ghg['rmspe'] = (rmspe_imports_ghg['RMSPE1'] + rmspe_imports_ghg['RMSPE2']) / 2
+
+# sector x country 
+temp = (total + 0.01).unstack(['country', 'sector'])
+temp.columns = temp.columns.swaplevel(0, 1).swaplevel(1, 2)
+rmspe_all = pd.DataFrame()
+for item in data_comb_cols:
+    for c in temp.columns.levels[0]:
+        for s in temp.columns.levels[1]:
+            temp3 = temp[c][s]
+            temp2 = pd.DataFrame(columns=['data', 'country', 'sector', 'RMSPE1', 'RMSPE2'], index=[0])
+            temp2.loc[0, 'data'] = item[0] + ', ' + item[1]
+            temp2.loc[0, 'country'] = c
+            temp2.loc[0, 'sector'] = s
+            temp2.loc[0, 'RMSPE1'] = rmspe(temp3[item[0]].tolist(), temp3[item[1]].tolist())
+            temp2.loc[0, 'RMSPE2'] = rmspe(temp3[item[1]].tolist(), temp3[item[0]].tolist())
+            rmspe_all = rmspe_all.append(temp2)
+rmspe_all['rmspe'] = (rmspe_all['RMSPE1'] + rmspe_all['RMSPE2']) / 2
+rmspe_all = rmspe_all.set_index(['data', 'country', 'sector'])[['rmspe']].unstack('data').droplevel(axis=1, level=0)
+
+# country 
+temp = (total + 0.01).sum(level=['country', 'year']).unstack(['country']).swaplevel(axis=1)
+rmspe_country = pd.DataFrame()
+for item in data_comb_cols:
+    for c in temp.columns.levels[0]:
+        temp3 = temp[c]
+        temp2 = pd.DataFrame(columns=['data', 'country', 'RMSPE1', 'RMSPE2'], index=[0])
+        temp2.loc[0, 'data'] = item[0] + ', ' + item[1]
+        temp2.loc[0, 'country'] = c
+        temp2.loc[0, 'RMSPE1'] = rmspe(temp3[item[0]].tolist(), temp3[item[1]].tolist())
+        temp2.loc[0, 'RMSPE2'] = rmspe(temp3[item[1]].tolist(), temp3[item[0]].tolist())
+        rmspe_country = rmspe_country.append(temp2)
+rmspe_country['rmspe'] = (rmspe_country['RMSPE1'] + rmspe_country['RMSPE2']) / 2
+rmspe_country = rmspe_country.set_index(['data', 'country' ])[['rmspe']].unstack('data').droplevel(axis=1, level=0)
+  
+# sector - all
+temp = (total + 0.01).sum(level=['sector', 'year']).unstack(['sector']).swaplevel(axis=1)
+rmspe_sector_total = pd.DataFrame()
+for item in data_comb_cols:
+    for c in temp.columns.levels[0]:
+        temp3 = temp[c]
+        temp2 = pd.DataFrame(columns=['data', 'sector', 'RMSPE1', 'RMSPE2'], index=[0])
+        temp2.loc[0, 'data'] = item[0] + ', ' + item[1]
+        temp2.loc[0, 'sector'] = c
+        temp2.loc[0, 'RMSPE1'] = rmspe(temp3[item[0]].tolist(), temp3[item[1]].tolist())
+        temp2.loc[0, 'RMSPE2'] = rmspe(temp3[item[1]].tolist(), temp3[item[0]].tolist())
+        rmspe_sector_total = rmspe_sector_total.append(temp2)
+rmspe_sector_total['rmspe'] = (rmspe_sector_total['RMSPE1'] + rmspe_sector_total['RMSPE2']) / 2
+rmspe_sector_total = rmspe_sector_total.set_index(['data', 'sector' ])[['rmspe']].unstack('data').droplevel(axis=1, level=0)
+
+# sector - imports
+temp = (imports + 0.01).sum(level=['sector', 'year']).unstack(['sector']).swaplevel(axis=1)
+rmspe_sector_imports = pd.DataFrame()
+for item in data_comb_cols:
+    for c in temp.columns.levels[0]:
+        temp3 = temp[c]
+        temp2 = pd.DataFrame(columns=['data', 'sector', 'RMSPE1', 'RMSPE2'], index=[0])
+        temp2.loc[0, 'data'] = item[0] + ', ' + item[1]
+        temp2.loc[0, 'sector'] = c
+        temp2.loc[0, 'RMSPE1'] = rmspe(temp3[item[0]].tolist(), temp3[item[1]].tolist())
+        temp2.loc[0, 'RMSPE2'] = rmspe(temp3[item[1]].tolist(), temp3[item[0]].tolist())
+        rmspe_sector_imports = rmspe_sector_imports.append(temp2)
+rmspe_sector_imports['rmspe'] = (rmspe_sector_imports['RMSPE1'] + rmspe_sector_imports['RMSPE2']) / 2
+rmspe_sector_imports = rmspe_sector_imports.set_index(['data', 'sector' ])[['rmspe']].unstack('data').droplevel(axis=1, level=0)
 
 
-corr_summary_country = correlation.mean(axis=0, level=0).sort_values('corr', ascending = False)
-corr_summary_country.plot(kind='bar')
-plt.savefig(plot_filepath + 'barplot_country_correlation_bydatapair.png', dpi=200, bbox_inches='tight')
+##############
+## Plot all ##
+##############
 
-corr_summary_combo = correlation.mean(axis=0, level=1).sort_values('corr', ascending = False)
-corr_summary_combo.plot(kind='bar')
-plt.savefig(plot_filepath + 'barplot_country_correlation_bycountry.png', dpi=200, bbox_inches='tight')
+### Correlations
 
-#sns.scatterplot(data = correlation.reset_index(), x='combo',y='corr',  hue='country')
-sns.boxplot(data = correlation.reset_index().sort_values('corr'), x='combo',y='corr'); plt.xticks(rotation=90)
-plt.savefig(plot_filepath + 'boxplot_country_correlation_bydatapair.png', dpi=200, bbox_inches='tight')
-
-correlation = correlation.unstack('combo')
-correlation[('dataset', 'mean')] = correlation.mean(1)
-correlation = correlation.append(pd.DataFrame(correlation.mean(0)).T.rename(index={0:'mean'}))
-correlation = correlation.sort_values(('dataset', 'mean'), ascending=False).T.sort_values('mean', ascending=False).T
-
-world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-plot = world.set_index('name').join(
-    correlation.rename(index={'United States':'United States of America', 'Czech Republic':'Czechia'})).fillna(correlation.loc['mean', ('dataset', 'mean')])
-
-for item in plot.loc[:, ('corr', 'oecd, gloria'):].columns:
-    plot.plot(column=item, legend=True, edgecolor='black', linewidth=0.1, cmap='RdBu'); 
-    plt.title(str(item)); 
-    plt.savefig(plot_filepath + 'map_world_country_correlation.png', dpi=200, bbox_inches='tight')
-    
-    plot.plot(column=item, legend=True, edgecolor='black', linewidth=0.1, cmap='RdBu'); 
-    plt.xlim(-15, 50); plt.ylim(30, 85); plt.title(str(item)); 
-    plt.savefig(plot_filepath + 'map_europe_country_correlation.png', dpi=200, bbox_inches='tight')
-
-
-# Import Kmeans Library
-# use the elbow method
-wcss = []
-results = correlation['corr']
-for i in range(1,11):
-    kmeans = KMeans(n_clusters=i, init = 'k-means++', max_iter=300, n_init=10, random_state=0)
-    kmeans.fit(results)
-    wcss.append(kmeans.inertia_)
-# Plot the WCSS results
-plt.plot(range(1,11), wcss); plt.title('The elbow method'); plt.xlabel('number of clusters'); plt.ylabel('WCSS')
+# total and import ghg
+plot_data = pd.DataFrame(corr_total_ghg).rename(columns={0:'total'}).join(pd.DataFrame(corr_imports_ghg).rename(columns={0:'imports'}))
+plot_data = plot_data.T[data_comb_cols]
+plot_data.columns = data_comb
+plot_data = pd.DataFrame(plot_data.unstack())
+order = plot_data.swaplevel(0).loc['imports'].sort_values(0, ascending=False).index.tolist()
+plot_data = plot_data.reset_index().rename(columns={'level_0':'data', 'level_1':'ghg from', 0:'corr'})
+plot_data['data'] = pd.Categorical(plot_data['data'], categories=order, ordered=True)
+sns.scatterplot(data=plot_data.sort_values('corr', ascending=False), x='data', y='corr', hue='ghg from')
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(0, 1.1)
 plt.show()
 
 
-for i in [5]:
-    results = correlation['corr']
-    # Apply K-means to petal data based on WCSS results
-    kmeans = KMeans(n_clusters=i, init = 'k-means++', max_iter=300, n_init=10, random_state=0)
-    
-    # this will create an arry for the predicted clusters for the petal data
-    y_kmeans = kmeans.fit_predict(results)
-    results['cluster'] = ['Cluster ' + str(x+1) for x in y_kmeans]
-    
-    results['median'] = results.iloc[:, :-1].median(1)
-    results = results.sort_values('median', ascending = False)
-    results = results.set_index(['cluster', 'median'], append=True).stack().reset_index()
-    
-    fig, ax = plt.subplots(figsize=(15, 5))
-    sns.boxplot(ax=ax, data=results, x='level_0', y=0, hue='cluster', dodge=False); 
-    plt.xticks(rotation=90); 
-    plt.title('No. clusters: ' + str(i))
-    plt.savefig(plot_filepath + 'boxplot_country_correlation_bycountry.png', dpi=200, bbox_inches='tight')
+# country x sector total by emission decile
+q = 5
+for item in ['total', 'imports']:
+    if item == 'total':
+        plot_data = cp.copy(corr_all)
+    elif item == 'imports':
+        plot_data = cp.copy(corr_all).drop('United Kingdom')  
+    plot_data = plot_data[data_comb_cols + [('mean', 'mean')]].fillna(0).sort_values(('mean', 'mean'), ascending=False)
+    plot_data.columns = data_comb + ['mean']
+    plot_data['cumsum'] = plot_data['mean'].cumsum()
+    plot_data['cumpct'] = plot_data['cumsum'] / plot_data['mean'].sum() * 100
+    plot_data.loc[plot_data['cumpct'] > 100, 'cumpct'] = 100
+    for i in range(q):
+        pct0 = 100/q*i; pct1 = 100/q*(i+1)
+        plot_data.loc[(plot_data['cumpct'] <= pct1) & (plot_data['cumpct'] > pct0), 'quantile'] = str(pct0) + '-' + str(pct1) + '%'
+    plot_data = plot_data[data_comb + ['quantile', 'mean']].set_index(['mean', 'quantile'], append=True).stack().reset_index().rename(columns={'level_4':'data', 0:'corr'})
+    temp = plot_data.groupby('data').mean()[['corr']].reset_index().rename(columns={'corr':'mean_corr'})
+    plot_data = plot_data.merge(temp, on='data').sort_values(['mean', 'mean_corr'], ascending=False)
+    # country label
+    sns.boxplot(data=plot_data, x='quantile', y='corr', hue='data'); 
+    plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+    plt.title(item)
+    plt.show()
+    # pair label
+    sns.boxplot(data=plot_data, x='data', y='corr', hue='quantile'); 
+    plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+    plt.title(item)
+    plt.show()
+
+# total
+plot_data = corr_country[data_comb_cols + [('mean', 'mean')]]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_corr', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'corr'}).merge(temp, on='data').sort_values(['mean', 'mean_corr'], ascending=False)
+# country label
+sns.scatterplot(data=plot_data, x='country', y='corr', hue='data'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='corr'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+plt.show()
+
+# country
+plot_data = corr_country[data_comb_cols + [('mean', 'mean')]]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_corr', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'corr'}).merge(temp, on='data').sort_values(['mean', 'mean_corr'], ascending=False)
+# country label
+sns.scatterplot(data=plot_data, x='country', y='corr', hue='data'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='corr'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+plt.show()
+
+# sector
+plot_data = corr_sector_imports[data_comb_cols + [('mean', 'mean')]]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_corr', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'corr'}).merge(temp, on='data').sort_values(['mean', 'mean_corr'], ascending=False)
+# sector label
+sns.boxplot(data=plot_data, x='sector', y='corr'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='corr'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-1.1, 1.1)
+plt.show()
+
+
+
+### Change over time
+
+# total and import ghg
+plot_data = change_total_ghg.rename(columns={'Pct_same':'total'}).merge(change_imports_ghg.rename(columns={'Pct_same':'imports'}), on='data')
+plot_data = pd.DataFrame(plot_data.set_index('data')[['total', 'imports']].stack())
+order = plot_data.swaplevel(0).loc['imports'].sort_values(0, ascending=False).index.tolist()
+plot_data = plot_data.reset_index().rename(columns={'level_1':'ghg from', 0:'pct_same'})
+plot_data['data'] = pd.Categorical(plot_data['data'], categories=order, ordered=True)
+sns.scatterplot(data=plot_data.sort_values('data', ascending=False), x='data', y='pct_same', hue='ghg from')
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+plt.show()
+
+
+# country x sector total by emission decile
+change_all['mean'] = corr_all[('mean', 'mean')]
+q = 5
+for item in ['total', 'imports']:
+    if item == 'total':
+        plot_data = cp.copy(change_all)
+    elif item == 'imports':
+        plot_data = cp.copy(change_all).drop('United Kingdom')  
+    plot_data = plot_data[data_comb + ['mean']].fillna(0).sort_values('mean', ascending=False)
+    plot_data['cumsum'] = plot_data['mean'].cumsum()
+    plot_data['cumpct'] = plot_data['cumsum'] / plot_data['mean'].sum() * 100
+    plot_data.loc[plot_data['cumpct'] > 100, 'cumpct'] = 100
+    for i in range(q):
+        pct0 = 100/q*i; pct1 = 100/q*(i+1)
+        plot_data.loc[(plot_data['cumpct'] <= pct1) & (plot_data['cumpct'] > pct0), 'quantile'] = str(pct0) + '-' + str(pct1) + '%'
+    plot_data = plot_data[data_comb + ['quantile', 'mean']].set_index(['mean', 'quantile'], append=True).stack().reset_index().rename(columns={'level_4':'data', 0:'change'})
+    temp = plot_data.groupby('data').mean()[['change']].reset_index().rename(columns={'change':'mean_change'})
+    plot_data = plot_data.merge(temp, on='data').sort_values(['mean', 'mean_change'], ascending=False)
+    # country label
+    sns.boxplot(data=plot_data, x='quantile', y='change', hue='data'); 
+    plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+    plt.title(item)
+    plt.show()
+    # pair label
+    sns.boxplot(data=plot_data, x='data', y='change', hue='quantile'); 
+    plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+    plt.title(item)
+    plt.show()
+
+
+# country
+change_country['mean'] = corr_country[('mean', 'mean')]
+plot_data = change_country[data_comb + ['mean']]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_change', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'change'}).merge(temp, on='data').sort_values(['mean', 'mean_change'], ascending=False)
+# country label
+sns.scatterplot(data=plot_data, x='country', y='change', hue='data', style='data'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+plt.show()
+
+g = sns.FacetGrid(plot_data.loc[plot_data['country'] != 'United Kingdom'], col="data", col_wrap=3)
+g.map(sns.scatterplot, "country", "change")
+plt.xticks(rotation=90); plt.ylim(-5, 105)
+plt.show()
+
+
+fig, ax1 = plt.subplots()
+sns.boxplot(data=plot_data, x='country', y='change'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+ax2 = ax1.twinx()
+ax2.plot(plot_data[['country', 'mean']].drop_duplicates()['country'], plot_data[['country', 'mean']].drop_duplicates()['mean'])
+ax2.set_ylabel('Carbon emissions')
+plt.show()
+
+temp = plot_data.loc[plot_data['country'] != 'United Kingdom']
+fig, ax1 = plt.subplots()
+sns.boxplot(data=temp, x='country', y='change'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+ax2 = ax1.twinx()
+ax2.plot(temp[['country', 'mean']].drop_duplicates()['country'], temp[['country', 'mean']].drop_duplicates()['mean'])
+ax2.set_ylabel('Carbon emissions'); ax1.set_ylabel('Pct same')
+plt.savefig(plot_filepath + '_boxplot_UK_imported_emissions_country_bycountry.png', dpi=200, bbox_inches='tight')
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='change'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+plt.savefig(plot_filepath + '_boxplot_UK_imported_emissions_country_bydata.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+# sector - total
+change_sector_total['mean'] = corr_sector_total[('mean', 'mean')]
+plot_data = change_sector_total[data_comb + ['mean']]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_change', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'change'}).merge(temp, on='data').sort_values(['mean', 'mean_change'], ascending=False)
+# sector label
+fig, ax1 = plt.subplots()
+sns.boxplot(ax=ax1, data=plot_data, x='sector', y='change'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+ax2 = ax1.twinx()
+ax2.plot(plot_data[['sector', 'mean']].drop_duplicates()['sector'], plot_data[['sector', 'mean']].drop_duplicates()['mean'])
+ax2.set_ylabel('Carbon emissions')
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='change'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+plt.show()
+
+# sector - imports
+change_sector_imports['mean'] = corr_sector_imports[('mean', 'mean')]
+plot_data = change_sector_imports[data_comb + ['mean']]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_change', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'change'}).merge(temp, on='data').sort_values(['mean', 'mean_change'], ascending=False)
+# sector label
+fig, ax1 = plt.subplots()
+sns.boxplot(ax=ax1, data=plot_data, x='sector', y='change'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+ax2 = ax1.twinx()
+ax2.plot(plot_data[['sector', 'mean']].drop_duplicates()['sector'], plot_data[['sector', 'mean']].drop_duplicates()['mean'])
+ax2.set_ylabel('Carbon emissions')
+plt.savefig(plot_filepath + '_boxplot_UK_imported_emissions_sector_bysector.png', dpi=200, bbox_inches='tight')
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='change'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+plt.savefig(plot_filepath + '_boxplot_UK_imported_emissions_sector_bydata.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
+### RMPSE
+
+# total and import ghg
+plot_data = rmspe_total_ghg.rename(columns={'rmspe':'total'}).merge(rmspe_imports_ghg.rename(columns={'rmspe':'imports'}), on='data')
+plot_data = pd.DataFrame(plot_data.set_index('data')[['total', 'imports']].stack())
+order = plot_data.swaplevel(0).loc['imports'].sort_values(0, ascending=True).index.tolist()
+plot_data = plot_data.reset_index().rename(columns={'level_1':'ghg from', 0:'rmspe'})
+plot_data['data'] = pd.Categorical(plot_data['data'], categories=order, ordered=True)
+sns.scatterplot(data=plot_data.sort_values('data', ascending=True), x='data', y='rmspe', hue='ghg from')
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.ylim(-5, 105)
+plt.show()
+
+
+# country x sector total by emission decile
+rmspe_all['mean'] = corr_all[('mean', 'mean')]
+q = 5
+for item in ['total', 'imports']:
+    if item == 'total':
+        plot_data = cp.copy(rmspe_all)
+    elif item == 'imports':
+        plot_data = cp.copy(rmspe_all).drop('United Kingdom')  
+    plot_data = plot_data[data_comb + ['mean']].fillna(0).sort_values('mean', ascending=True)
+    plot_data['cumsum'] = plot_data['mean'].cumsum()
+    plot_data['cumpct'] = plot_data['cumsum'] / plot_data['mean'].sum() * 100
+    plot_data.loc[plot_data['cumpct'] > 100, 'cumpct'] = 100
+    for i in range(q):
+        pct0 = 100/q*i; pct1 = 100/q*(i+1)
+        plot_data.loc[(plot_data['cumpct'] <= pct1) & (plot_data['cumpct'] > pct0), 'quantile'] = str(pct0) + '-' + str(pct1) + '%'
+    plot_data = plot_data[data_comb + ['quantile', 'mean']].set_index(['mean', 'quantile'], append=True).stack().reset_index().rename(columns={'level_4':'data', 0:'rmspe'})
+    temp = plot_data.groupby('data').mean()[['rmspe']].reset_index().rename(columns={'rmspe':'mean_rmspe'})
+    plot_data = plot_data.merge(temp, on='data').sort_values(['mean', 'mean_rmspe'], ascending=True)
+    # country label
+    sns.boxplot(data=plot_data, x='quantile', y='rmspe', hue='data', showfliers=False); 
+    plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.yscale('log'); #plt.ylim(-5, 105)
+    plt.title(item)
+    plt.show()
+    # pair label
+    sns.boxplot(data=plot_data, x='data', y='rmspe', hue='quantile', showfliers=False); 
+    plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.yscale('log') #plt.ylim(-5, 105)
+    plt.title(item)
+    plt.show()
+
+# country
+rmspe_country['mean'] = corr_country[('mean', 'mean')]
+plot_data = rmspe_country[data_comb + ['mean']]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_rmspe', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'rmspe'}).merge(temp, on='data').sort_values(['mean', 'mean_rmspe'], ascending=True)
+# country label
+sns.scatterplot(data=plot_data, x='country', y='rmspe', hue='data'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1));# plt.ylim(-5, 105)
+plt.show()
+sns.boxplot(data=plot_data, x='country', y='rmspe'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); #plt.ylim(-5, 105)
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='rmspe'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); #plt.ylim(-5, 105)
+plt.show()
+
+# sector - total
+rmspe_sector_total['mean'] = corr_sector_total[('mean', 'mean')]
+plot_data = rmspe_sector_total[data_comb + ['mean']]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_rmspe', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'rmspe'}).merge(temp, on='data').sort_values(['mean', 'mean_rmspe'], ascending=True)
+# sector label
+sns.boxplot(data=plot_data, x='sector', y='rmspe'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.yscale('log'); # plt.ylim(-5, 105)
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='rmspe', showfliers=False); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); #plt.ylim(-5, 105)
+plt.show()
+
+# sector - imports
+rmspe_sector_imports['mean'] = corr_sector_imports[('mean', 'mean')]
+plot_data = rmspe_sector_imports[data_comb + ['mean']]
+plot_data.columns = data_comb + ['mean']
+temp = plot_data[data_comb].mean(0).reset_index().rename(columns={0:'mean_rmspe', 'index':'data'})
+plot_data = plot_data.set_index('mean', append=True).stack().reset_index().rename(columns={'level_2':'data', 0:'rmspe'}).merge(temp, on='data').sort_values(['mean', 'mean_rmspe'], ascending=True)
+# sector label
+sns.boxplot(data=plot_data, x='sector', y='rmspe'); 
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); plt.yscale('log'); # plt.ylim(-5, 105)
+plt.show()
+# pair label
+sns.boxplot(data=plot_data, x='data', y='rmspe', showfliers=False); plt.yscale('log'); # plt.ylim(-5, 105)
+plt.xticks(rotation=90); plt.legend(bbox_to_anchor=(1,1)); #plt.ylim(-5, 105)
+plt.show()

@@ -76,6 +76,18 @@ change = change.reset_index().rename(columns={'level_1':'dataset'})
 
 change2 = change#.loc[change['dataset'] != 'gloria']
 
+change_plot = (change2.set_index(['country', 'dataset']) -1) *100
+change_plot.columns = [str(x-1) + '-' + str(x) for x in change_plot.columns]
+
+fig, axs = plt.subplots(figsize=(25, 15), nrows=len(change_plot.columns), sharex=True)
+for i in range(len(change_plot.columns)):
+    temp = change_plot.reset_index()
+    sns.barplot(ax=axs[i], data=temp, y=change_plot.columns[i], x='country', hue='dataset')
+    axs[i].legend(bbox_to_anchor=(1,1))
+plt.xticks(rotation=90)
+plt.savefig(plot_filepath + 'barplot_CHANGE.png', dpi=200, bbox_inches='tight')
+
+
 change3 = change2.groupby('country').describe().stack(level=0)[['min', 'max', 'mean']]
 change3['range'] = change3['max'] - change3['min']
 change3['Same_direction'] = False
