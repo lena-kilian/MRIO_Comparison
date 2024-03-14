@@ -104,7 +104,7 @@ change = change.merge(change.groupby('country').mean().reset_index().rename(colu
 
 # Imports
 
-temp = summary.unstack('country').swaplevel(axis=1)
+temp = summary_im.unstack('country').swaplevel(axis=1)
 change_im = pd.DataFrame(columns=['country'])
 # Convert to True vs False
 for c in temp.columns.levels[0]:
@@ -127,6 +127,8 @@ change_im = change_im.merge(change_im.groupby('country').mean().reset_index().re
 ###################
 ## Plot together ##
 ###################
+
+# Plot with country on x
 
 fs = 16
 pal = 'tab10'
@@ -174,4 +176,31 @@ for i in range(2):
 
 fig.tight_layout()
 plt.savefig(plot_filepath + 'ALL_stripplot_country_RMSPE_bycountry.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
+# Plot with data on x
+
+plot_data2 = plot_data.set_index(['country', 'dataset'])[['RMSPE']].join(plot_data_imports.set_index(['country', 'dataset'])[['RMSPE']], rsuffix='_imports')\
+    .stack().reset_index().rename(columns={0:'RMSPE'})
+temp = plot_data2.loc[plot_data2['level_2'] == 'RMSPE'].groupby(['dataset']).mean().rename(columns={'RMSPE':'mean'}).reset_index()
+plot_data2 = plot_data2.merge(temp, on='dataset').sort_values('mean')
+plot_data2['Type'] = plot_data2['level_2'].map({'RMSPE':'Total', 'RMSPE_imports':'Imports'})
+
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.boxplot(ax=ax, data=plot_data2, x='dataset', y='RMSPE', hue='Type', showfliers=False)
+sns.stripplot(ax=ax, data=plot_data2, x='dataset', y='RMSPE', hue='Type', dodge=True, palette='dark', alpha=0.6, s=7.5)
+
+ax.set_ylabel('Footprint RMSPE (%)', fontsize=fs); 
+
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=fs); 
+
+for i in range(2):
+    ax.set_ylim(0, 150)
+    ax.set_xlabel('')
+    ax.tick_params(axis='y', labelsize=fs)
+    ax.legend(loc='upper center', fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'ALL_boxplot_country_RMSPE_bydata.png', dpi=200, bbox_inches='tight')
 plt.show()

@@ -173,3 +173,30 @@ for i in range(2):
 fig.tight_layout()
 plt.savefig(plot_filepath + 'ALL_stripplot_country_pctsame_bycountry.png', dpi=200, bbox_inches='tight')
 plt.show()
+
+
+# Plot with data on x
+
+plot_data2 = plot_data.set_index(['country', 'dataset'])[['pct_same']].join(plot_data_imports.set_index(['country', 'dataset'])[['pct_same']], rsuffix='_imports')\
+    .stack().reset_index().rename(columns={0:'pct_same'})
+temp = plot_data2.loc[plot_data2['Same_direction'] == 'pct_same'].groupby(['dataset']).mean().rename(columns={'pct_same':'mean'}).reset_index()
+plot_data2 = plot_data2.merge(temp, on='dataset').sort_values('mean', ascending=False)
+plot_data2['Type'] = plot_data2['Same_direction'].map({'pct_same':'Total', 'pct_same_imports':'Imports'})
+
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.boxplot(ax=ax, data=plot_data2, x='dataset', y='pct_same', hue='Type', showfliers=False)
+sns.stripplot(ax=ax, data=plot_data2, x='dataset', y='pct_same', hue='Type', dodge=True, palette='dark', alpha=0.6, s=7.5)
+
+ax.set_ylabel('Footprint similarity (%)', fontsize=fs); 
+
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=fs); 
+
+for i in range(2):
+    ax.set_ylim(0, 101)
+    ax.set_xlabel('')
+    ax.tick_params(axis='y', labelsize=fs)
+    ax.legend(loc='lower center', fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'ALL_boxplot_country_pctsame_bydata.png', dpi=200, bbox_inches='tight')
+plt.show()
