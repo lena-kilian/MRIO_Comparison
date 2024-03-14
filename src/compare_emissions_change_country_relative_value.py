@@ -149,6 +149,8 @@ plot_data['country'] = '                     ' + plot_data['country']
 sns.stripplot(ax=axs[0], data=plot_data, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
 plot_data_imports = cp.copy(change_im)
+plot_data_imports['country'] = plot_data_imports['country'].map(country_dict)
+plot_data_imports['dataset'] = plot_data_imports['dataset'].map(data_dict)
 plot_data_imports['country'] = '                     ' + plot_data_imports['country']
 sns.stripplot(ax=axs[1], data=plot_data_imports, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
