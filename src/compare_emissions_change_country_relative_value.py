@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import copy as cp
 
 # set working directory
 # make different path depending on operating system
@@ -93,7 +94,7 @@ for c in temp.columns.levels[0]:
     
         temp3 = pd.DataFrame(index=[0])
         temp3['country'] = c
-        temp3[(d0, d1)] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
+        temp3[comb] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
         
         temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
         
@@ -114,7 +115,7 @@ for c in temp.columns.levels[0]:
     
         temp3 = pd.DataFrame(index=[0])
         temp3['country'] = c
-        temp3[(d0, d1)] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
+        temp3[comb] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
         
         temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
         
@@ -133,19 +134,21 @@ c_box = '#000000'
 c_vlines = '#B9B9B9'
 
 country_dict = {'United Kingdom':'UK', 'South Korea':'S. Korea', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
+for item in change['country'].unique():
+    if item not in list(country_dict.keys()):
+        country_dict[item] = item
 data_dict = {'oecd, figaro':'ICIO, Figaro', 'oecd, exio':'Exiobase, ICIO', 'oecd, gloria':'ICIO, Gloria', 
              'figaro, exio':'Exiobase, Figaro', 'figaro, gloria':'Figaro, Gloria', 'exio, gloria':'Exiobase, Gloria'}
 
 fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 
-plot_data = change
-plot_data['country'] = plot_data['country'].rename(country_dict)
-plot_data['dataset'] = plot_data['dataset'].rename(data_dict)
-plot_data
+plot_data = cp.copy(change)
+plot_data['country'] = plot_data['country'].map(country_dict)
+plot_data['dataset'] = plot_data['dataset'].map(data_dict)
 plot_data['country'] = '                     ' + plot_data['country']
 sns.stripplot(ax=axs[0], data=plot_data, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
-plot_data_imports = change_im
+plot_data_imports = cp.copy(change_im)
 plot_data_imports['country'] = '                     ' + plot_data_imports['country']
 sns.stripplot(ax=axs[1], data=plot_data_imports, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
@@ -163,7 +166,7 @@ for i in range(2):
     axs[i].set_ylim(-5, 105)
     axs[i].set_xlabel('')
     axs[i].tick_params(axis='y', labelsize=fs)
-    axs[i].legend(loc='lower center', fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+    axs[i].legend(loc='upper center', fontsize=fs, ncol=len(plot_data['dataset'].unique()))
     for c in range(len(plot_data['country'].unique())):
         axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
 
