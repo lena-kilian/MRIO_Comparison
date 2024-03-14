@@ -10,6 +10,7 @@ from sys import platform
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 # set working directory
 # make different path depending on operating system
@@ -29,6 +30,13 @@ datasets = list(co2_all.keys())
 years = list(co2_all[datasets[0]].keys())
 
 data_comb = ['oecd, figaro', 'oecd, exio', 'oecd, gloria', 'figaro, exio', 'figaro, gloria', 'exio, gloria']
+
+def rmspe(x1, x2):
+    pct_diff = ((x1/x2) - 1) * 100
+    pct_sq = pct_diff **2
+    mean_sq = np.mean(pct_sq)
+    error = np.sqrt(mean_sq)
+    return(error)
 
 ###############
 ## Summarise ##
@@ -74,58 +82,46 @@ summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country'
 
 # Total
 
-temp = summary.unstack(level=1).stack(level=0)
-change = temp[years[1:]]
-for year in years[1:]:
-    change[year] = temp[year] / temp[year - 1]
-    
-change = change.unstack(level=1).stack(level=0)
+temp = summary.unstack('country').swaplevel(axis=1)
+change = pd.DataFrame(columns=['country'])
 # Convert to True vs False
-for comb in data_comb:
-    d0 = comb.split(', ')[0]
-    d1 = comb.split(', ')[1]
+for c in temp.columns.levels[0]:
+    temp2 = temp[c]
+    for comb in data_comb:
+        d0 = comb.split(', ')[0]
+        d1 = comb.split(', ')[1]
     
-    change[comb] = False
-    change.loc[((change[d0]>1) & (change[d1]>1) | (change[d0]<1) & (change[d1]<1) | (change[d0]==1) & (change[d1]==1)), comb] = True
-
-change = change[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
-change['count'] = 1
-change = change.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction').droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
-
-change['pct_same'] = change[True] / (change[True] + change[False])*100
-
-change_country = change.mean(axis=0, level='country').sort_values('pct_same', ascending=False)
-change_country['rank'] = list(range(1, len(change_country) + 1))
-
-results = change.reset_index().merge(change_country[['rank']], on='country')
-
+        temp3 = pd.DataFrame(index=[0])
+        temp3['country'] = c
+        temp3[(d0, d1)] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
+        
+        temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
+        
+        change = change.append(temp3)
+        
+change = change.merge(change.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values('mean')
 
 # Imports
 
-temp = summary_im.unstack(level=1).stack(level=0)
-change_im = temp[years[1:]]
-for year in years[1:]:
-    change_im[year] = temp[year] / temp[year - 1]
-    
-change_im = change_im.unstack(level=1).stack(level=0)
+temp = summary.unstack('country').swaplevel(axis=1)
+change_im = pd.DataFrame(columns=['country'])
 # Convert to True vs False
-for comb in data_comb:
-    d0 = comb.split(', ')[0]
-    d1 = comb.split(', ')[1]
+for c in temp.columns.levels[0]:
+    temp2 = temp[c]
+    for comb in data_comb:
+        d0 = comb.split(', ')[0]
+        d1 = comb.split(', ')[1]
     
-    change_im[comb] = False
-    change_im.loc[((change_im[d0]>1) & (change_im[d1]>1) | (change_im[d0]<1) & (change_im[d1]<1) | (change_im[d0]==1) & (change_im[d1]==1)), comb] = True
+        temp3 = pd.DataFrame(index=[0])
+        temp3['country'] = c
+        temp3[(d0, d1)] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
+        
+        temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
+        
+        change_im = change_im.append(temp3)
+        
+change_im = change_im.merge(change_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values('mean')
 
-change_im = change_im[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
-change_im['count'] = 1
-change_im = change_im.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction').droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
-
-change_im['pct_same'] = change_im[True] / (change_im[True] + change_im[False])*100
-
-change_im_country = change_im.mean(axis=0, level='country').sort_values('pct_same', ascending=False)
-change_im_country['rank'] = list(range(1, len(change_im_country) + 1))
-
-results_im = change_im.reset_index().merge(change_im_country[['rank']], on='country')
 
 ###################
 ## Plot together ##
@@ -142,22 +138,23 @@ data_dict = {'oecd, figaro':'ICIO, Figaro', 'oecd, exio':'Exiobase, ICIO', 'oecd
 
 fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 
-plot_data = change.loc[change_country.index.tolist()].rename(index=country_dict).swaplevel(axis=0).rename(index=data_dict).reset_index()
+plot_data = change
+plot_data['country'] = plot_data['country'].rename(country_dict)
+plot_data['dataset'] = plot_data['dataset'].rename(data_dict)
+plot_data
 plot_data['country'] = '                     ' + plot_data['country']
-sns.stripplot(ax=axs[0], data=plot_data,
-              x='country', y='pct_same', hue='dataset', s=8, jitter=0.4, palette=pal); 
+sns.stripplot(ax=axs[0], data=plot_data, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
-plot_data_imports = change_im.loc[change_country.index.tolist()].rename(index=country_dict).swaplevel(axis=0).rename(index=data_dict).reset_index()
+plot_data_imports = change_im
 plot_data_imports['country'] = '                     ' + plot_data_imports['country']
-sns.stripplot(ax=axs[1], data=plot_data_imports, 
-              x='country', y='pct_same', hue='dataset', s=8, jitter=0.4, palette=pal); 
+sns.stripplot(ax=axs[1], data=plot_data_imports, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
 plt.setp(axs[0].artists, edgecolor=c_box, facecolor='w')
-sns.boxplot(ax=axs[0], data=plot_data, x='country', y='pct_same', color='w', showfliers=False) 
-sns.boxplot(ax=axs[1], data=plot_data_imports, x='country', y='pct_same', color='w', showfliers=False)
+sns.boxplot(ax=axs[0], data=plot_data, x='country', y='RMSPE', color='w', showfliers=False) 
+sns.boxplot(ax=axs[1], data=plot_data_imports, x='country', y='RMSPE', color='w', showfliers=False)
 
-axs[0].set_ylabel('Total footprint similarity (%)', fontsize=fs); 
-axs[1].set_ylabel('Imports similarity (%)', fontsize=fs)
+axs[0].set_ylabel('Total footprint RMSPE (%)', fontsize=fs); 
+axs[1].set_ylabel('Imports RMSPE (%)', fontsize=fs)
 
 axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
@@ -171,5 +168,5 @@ for i in range(2):
         axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'ALL_stripplot_country_pctsame_bycountry.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'ALL_stripplot_country_RMSPE_bycountry.png', dpi=200, bbox_inches='tight')
 plt.show()
