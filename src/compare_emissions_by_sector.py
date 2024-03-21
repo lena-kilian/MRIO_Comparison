@@ -63,7 +63,7 @@ sector_co2 = pd.DataFrame(summary.sum(axis=0, level='sector').mean(axis=1)).rena
 sector_co2['mean_co2_pct'] = sector_co2['mean_co2'] / sector_co2['mean_co2'].sum() * 100
 sector_co2['cum_pct'] = sector_co2['mean_co2_pct'].cumsum()
 
-l = len(sector_co2[sector_co2['cum_pct'] < 80].index)
+l = len(sector_co2[sector_co2['cum_pct'] < 100].index)
 top_sectors = sector_co2.iloc[:l+1, :].index.tolist()
 
 summary = summary.sum(axis=0, level=['country', 'year'])

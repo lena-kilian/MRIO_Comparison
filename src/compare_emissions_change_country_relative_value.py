@@ -121,8 +121,9 @@ for c in temp.columns.levels[0]:
         
         change_im = change_im.append(temp3)
         
-change_im = change_im.merge(change_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values('mean')
+change_im = change_im.merge(change_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country')
 
+change_im = change_im.set_index('country').loc[change['country'].unique()].reset_index()
 
 ###################
 ## Plot together ##
@@ -167,7 +168,7 @@ axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fonts
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 for i in range(2):
-    axs[i].set_ylim(-5, 105)
+    #axs[i].set_ylim(-5, 105)
     axs[i].set_xlabel('')
     axs[i].tick_params(axis='y', labelsize=fs)
     axs[i].legend(loc='upper center', fontsize=fs, ncol=len(plot_data['dataset'].unique()))
