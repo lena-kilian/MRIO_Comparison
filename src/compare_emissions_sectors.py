@@ -52,15 +52,15 @@ data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figa
 
 summary = pd.DataFrame()
 for year in years:
-    temp_oecd = pd.DataFrame(co2_all['oecd'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'oecd'})
-    temp_figaro = pd.DataFrame(co2_all['figaro'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'figaro'})
-    temp_gloria = pd.DataFrame(co2_all['gloria'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'gloria'})
-    temp_exio = pd.DataFrame(co2_all['exio'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio'})
+    temp_oecd = pd.DataFrame(co2_all['oecd'][year].sum(axis=1, level=0).sum(axis=0, level=1).unstack()).rename(columns={0:'oecd'})
+    temp_figaro = pd.DataFrame(co2_all['figaro'][year].sum(axis=1, level=0).sum(axis=0, level=1).unstack()).rename(columns={0:'figaro'})
+    temp_gloria = pd.DataFrame(co2_all['gloria'][year].sum(axis=1, level=0).sum(axis=0, level=1).unstack()).rename(columns={0:'gloria'})
+    temp_exio = pd.DataFrame(co2_all['exio'][year].sum(axis=1, level=0).sum(axis=0, level=1).unstack()).rename(columns={0:'exio'})
     # merge all
     temp = temp_oecd.join(temp_figaro).join(temp_gloria).join(temp_exio) 
     temp['year'] = year
     summary = summary.append(temp.reset_index())
-summary = summary.rename(columns={'index':'country'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
+summary = summary.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
     
 # Imports
 
@@ -71,12 +71,12 @@ for year in years:
         temp[item] = co2_all[item][year]
         for country in temp[item].index.levels[0]:
             temp[item].loc[country, country] = 0
-        temp[item] = pd.DataFrame(temp[item].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:item})
+        temp[item] = pd.DataFrame(temp[item].sum(axis=1, level=0).sum(axis=0, level=1).unstack()).rename(columns={0:item})
     # merge all
     temp_all = temp['oecd'].join(temp['figaro']).join(temp['gloria']).join(temp['exio'])
     temp_all['year'] = year
     summary_im = summary_im.append(temp_all.reset_index())
-summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
+summary_im = summary_im.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
 
 # Get means
 
@@ -148,10 +148,12 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
         d0 = comb.split(', ')[0]
         d1 = comb.split(', ')[1]
         data_direction[comb] = False
-        data_direction.loc[((data_direction[d0]>1) & (data_direction[d1]>1) | (data_direction[d0]<1) & (data_direction[d1]<1) | (data_direction[d0]==1) & (data_direction[d1]==1)), comb] = True
+        data_direction.loc[((data_direction[d0]>1) & (data_direction[d1]>1) | (data_direction[d0]<1) & (data_direction[d1]<1) | 
+                            (data_direction[d0]==1) & (data_direction[d1]==1)), comb] = True
     data_direction = data_direction[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
     data_direction['count'] = 1
-    data_direction = data_direction.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction').droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
+    data_direction = data_direction.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
+        .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
     data_direction['pct_same'] = data_direction[True] / (data_direction[True] + data_direction[False])*100
     
     # Imports
@@ -166,10 +168,12 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
         d0 = comb.split(', ')[0]
         d1 = comb.split(', ')[1]
         data_direction_im[comb] = False
-        data_direction_im.loc[((data_direction_im[d0]>1) & (data_direction_im[d1]>1) | (data_direction_im[d0]<1) & (data_direction_im[d1]<1) | (data_direction_im[d0]==1) & (data_direction_im[d1]==1)), comb] = True
+        data_direction_im.loc[((data_direction_im[d0]>1) & (data_direction_im[d1]>1) | (data_direction_im[d0]<1) & (data_direction_im[d1]<1) | 
+                               (data_direction_im[d0]==1) & (data_direction_im[d1]==1)), comb] = True
     data_direction_im = data_direction_im[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
     data_direction_im['count'] = 1
-    data_direction_im = data_direction_im.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction').droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
+    data_direction_im = data_direction_im.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
+        .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
     data_direction_im['pct_same'] = data_direction_im[True] / (data_direction_im[True] + data_direction_im[False])*100
     
     # Combine all

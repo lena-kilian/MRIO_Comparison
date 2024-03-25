@@ -141,10 +141,12 @@ for comb in data_comb:
     d0 = comb.split(', ')[0]
     d1 = comb.split(', ')[1]
     data_direction[comb] = False
-    data_direction.loc[((data_direction[d0]>1) & (data_direction[d1]>1) | (data_direction[d0]<1) & (data_direction[d1]<1) | (data_direction[d0]==1) & (data_direction[d1]==1)), comb] = True
+    data_direction.loc[((data_direction[d0]>1) & (data_direction[d1]>1) | (data_direction[d0]<1) & (data_direction[d1]<1) | 
+                        (data_direction[d0]==1) & (data_direction[d1]==1)), comb] = True
 data_direction = data_direction[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
 data_direction['count'] = 1
-data_direction = data_direction.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction').droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
+data_direction = data_direction.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
+    .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
 data_direction['pct_same'] = data_direction[True] / (data_direction[True] + data_direction[False])*100
 
 # Imports
@@ -159,10 +161,12 @@ for comb in data_comb:
     d0 = comb.split(', ')[0]
     d1 = comb.split(', ')[1]
     data_direction_im[comb] = False
-    data_direction_im.loc[((data_direction_im[d0]>1) & (data_direction_im[d1]>1) | (data_direction_im[d0]<1) & (data_direction_im[d1]<1) | (data_direction_im[d0]==1) & (data_direction_im[d1]==1)), comb] = True
+    data_direction_im.loc[((data_direction_im[d0]>1) & (data_direction_im[d1]>1) | (data_direction_im[d0]<1) & (data_direction_im[d1]<1) | 
+                           (data_direction_im[d0]==1) & (data_direction_im[d1]==1)), comb] = True
 data_direction_im = data_direction_im[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
 data_direction_im['count'] = 1
-data_direction_im = data_direction_im.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction').droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
+data_direction_im = data_direction_im.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
+    .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
 data_direction_im['pct_same'] = data_direction_im[True] / (data_direction_im[True] + data_direction_im[False])*100
 
 # Combine all
