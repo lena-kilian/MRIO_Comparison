@@ -204,7 +204,7 @@ for data in ['Total', 'Imports']:
     axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
     #axs[1].set_yscale('log')
     
-    axs[1].set_xticklabels(axs[0].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
+    axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
     axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
     for c in range(len(plot_data['country'].unique())):
@@ -219,7 +219,7 @@ for data in ['Total', 'Imports']:
     plot_data['Type'] = data
     results = results.append(plot_data.reset_index())
 
-# Boxplots with data on x
+# Plot with data on x
 
 temp = cp.copy(results)
 temp['dataset'] = temp['dataset'] + '\n\n'
@@ -240,7 +240,7 @@ axs[1].tick_params(axis='y', labelsize=fs)
 axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
 #axs[1].set_yscale('log')
     
-axs[1].set_xticklabels(axs[0].get_xticklabels(), va='center', fontsize=fs); 
+axs[1].set_xticklabels(axs[1].get_xticklabels(), va='center', fontsize=fs); 
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 for c in range(len(plot_data['dataset'].unique())):
@@ -250,18 +250,17 @@ fig.tight_layout()
 plt.savefig(plot_filepath + 'Boxplot_similarity_bydata.png', dpi=200, bbox_inches='tight')
 plt.show()
 
-
-## Violinplot 
+## Stripplot 
 
 fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 
-sns.violinplot(ax=axs[0], data=temp, x='dataset', y='RMSPE', hue='Type', showfliers=True)
+sns.stripplot(ax=axs[0], data=temp, x='dataset', y='RMSPE', hue='Type', dodge=True, s=point_size, jitter=0.4, palette=pal)
 axs[0].set_xlabel('')
 axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
 axs[0].tick_params(axis='y', labelsize=fs)
 axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
 
-sns.violinplot(ax=axs[1], data=temp, x='dataset', y='pct_same', hue='Type', showfliers=True)
+sns.stripplot(ax=axs[1], data=temp, x='dataset', y='pct_same', hue='Type', dodge=True, s=point_size, jitter=0.4, palette=pal)
 axs[1].set_ylim(-5, 105)
 axs[1].set_xlabel('')
 axs[1].set_ylabel('Similarity direction (%)', fontsize=fs); 
@@ -269,7 +268,7 @@ axs[1].tick_params(axis='y', labelsize=fs)
 axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
 #axs[1].set_yscale('log')
     
-axs[1].set_xticklabels(axs[0].get_xticklabels(), va='center', fontsize=fs); 
+axs[1].set_xticklabels(axs[1].get_xticklabels(), va='center', fontsize=fs); 
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 for c in range(len(plot_data['dataset'].unique())):
@@ -277,6 +276,5 @@ for c in range(len(plot_data['dataset'].unique())):
     axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
     
 fig.tight_layout()
-plt.savefig(plot_filepath + 'Violinplot_similarity_bydata.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'Stripplot_similarity_bydata.png', dpi=200, bbox_inches='tight')
 plt.show()
-
