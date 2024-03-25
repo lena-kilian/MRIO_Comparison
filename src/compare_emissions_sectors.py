@@ -187,9 +187,9 @@ for sector in sectors[:5]:
     ###################
     ## Plot together ##
     ###################
-    
+
     # sort countries by mean_co2
-    order = mean_co2[data].loc[sector].sort_values('mean_co2', ascending=False).index.tolist()
+    order = mean_co2['Total'].loc[sector].sort_values('mean_co2', ascending=False).index.tolist()
     
     # Stripplots
     fs = 16
@@ -198,40 +198,53 @@ for sector in sectors[:5]:
     c_vlines = '#B9B9B9'
     point_size = 9
     
-    for data in ['Total', 'Imports']:
-        plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset']).set_index('country').loc[order].reset_index()
+    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
+    for i in range(2):
+        data = ['Total', 'Imports'][i]
+        
+        mean = mean_co2[data].loc[sector]
+        
+        plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset'])\
+            .set_index('country').loc[order].reset_index()
+        plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean, on='country')
         plot_data['Country'] = '                     ' + plot_data['country']
         
-        fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
-    
-        sns.stripplot(ax=axs[0], data=plot_data, x='Country', y='RMSPE', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
-        axs[0].set_xlabel('')
-        axs[0].set_ylabel('RMSPE (%); log scale', fontsize=fs)
-        axs[0].tick_params(axis='y', labelsize=fs)
-        axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-        axs[0].set_yscale('log')
-        
-        sns.stripplot(ax=axs[1], data=plot_data, x='Country', y='pct_same', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
-        axs[1].set_ylim(-5, 105)
-        axs[1].set_xlabel('')
-        axs[1].set_ylabel('Similarity direction (%)', fontsize=fs); 
-        axs[1].tick_params(axis='y', labelsize=fs)
-        axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-        
-        axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
-        axs[1].xaxis.set_ticks_position('top') # the rest is the same
-    
-        for c in range(len(plot_data['country'].unique())):
-            axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
-            axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
-        
-        fig.tight_layout()
-        plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + data + '_' + sector + '.png', dpi=200, bbox_inches='tight')
-        plt.show()
-        
-        plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean_co2[data], on='country')
         plot_data['Type'] = data
         plot_data['Sector'] = sector
         results = results.append(plot_data.reset_index())
+        
+        if sector == 'Land transport and transport via pipelines':
+            plot_data = plot_data.loc[plot_data['RMSPE'] < 10**10]
+        
+        sns.stripplot(ax=axs[i], data=plot_data, x='Country', y='RMSPE', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
+        axs[i].set_xlabel('')
+        axs[i].tick_params(axis='y', labelsize=fs)
+        axs[i].set_yscale('log')
+        
+        if data == 'Total':
+            ax_twin0 = axs[i].twinx()
+            sns.lineplot(ax=ax_twin0, data=plot_data[['country', 'mean_co2']].drop_duplicates(), y='mean_co2', x='country', color='k')
+            ax_twin0.tick_params(axis='y', labelsize=fs)
+            ax_twin0.set_ylabel('Total emissions (CO2)', fontsize=fs); 
+        else:
+            ax_twin1 = axs[i].twinx()
+            sns.lineplot(ax=ax_twin1, data=plot_data[['country', 'mean_co2']].drop_duplicates(), y='mean_co2', x='country', color='k')
+            ax_twin1.tick_params(axis='y', labelsize=fs)
+            ax_twin1.set_ylabel('Imported emissions (CO2)', fontsize=fs); 
+        
+    axs[0].set_ylabel('Total emissions RMSPE (%)', fontsize=fs)
+    axs[1].set_ylabel('Imported emissions RMSPE (%)', fontsize=fs)
+    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+    axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
     
+    axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
+    axs[1].xaxis.set_ticks_position('top') # the rest is the same
+
+    for c in range(len(plot_data['country'].unique())-1):
+        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
+        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + sector + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
 
