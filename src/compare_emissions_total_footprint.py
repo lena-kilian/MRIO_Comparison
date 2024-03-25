@@ -199,6 +199,7 @@ for data in ['Total', 'Imports']:
     axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
     axs[0].tick_params(axis='y', labelsize=fs)
     axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+    #axs[0].set_yscale('log')
     
     sns.stripplot(ax=axs[1], data=plot_data, x='Country', y='pct_same', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
     axs[1].set_ylim(-5, 105)
@@ -206,7 +207,6 @@ for data in ['Total', 'Imports']:
     axs[1].set_ylabel('Similarity direction (%)', fontsize=fs); 
     axs[1].tick_params(axis='y', labelsize=fs)
     axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-    #axs[1].set_yscale('log')
     
     axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
     axs[1].xaxis.set_ticks_position('top') # the rest is the same

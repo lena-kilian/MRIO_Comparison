@@ -80,26 +80,25 @@ summary_im = summary_im.rename(columns={'level_0':'country', 'level_1':'sector'}
 
 # Get means
 
-mean_co2 = {'Total' : pd.DataFrame(summary.sum(axis=0, level=['country', 'year']).mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
-            'Imports' : pd.DataFrame(summary_im.sum(axis=0, level=['country', 'year']).mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})}
+mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level=['sector', 'country']).mean(axis=1)).rename(columns={0:'mean_co2'}), 
+            'Imports' : pd.DataFrame(summary_im.mean(axis=0, level=['sector', 'country']).mean(axis=1)).rename(columns={0:'mean_co2'})}
 
-mean_co2_sectors = {'Total' : pd.DataFrame(summary.sum(axis=0, level=['sector', 'year']).mean(axis=0, level='sector').mean(axis=1)).rename(columns={0:'mean_co2'}), 
-                    'Imports' : pd.DataFrame(summary_im.sum(axis=0, level=['sector', 'year']).mean(axis=0, level='sector').mean(axis=1)).rename(columns={0:'mean_co2'})}
 
+mean_co2_sector = {}
 for data in ['Total', 'Imports']:
-    mean_co2_sectors[data] = mean_co2_sectors[data].sort_values('mean_co2', ascending=False)
-    mean_co2_sectors[data]['pct_co2'] = mean_co2_sectors[data]['mean_co2'] / mean_co2_sectors[data]['mean_co2'].sum() * 100
-    mean_co2_sectors[data]['pct_co2_cumu'] = mean_co2_sectors[data]['pct_co2'].cumsum()
+    mean_co2_sector[data] = mean_co2[data].sum(axis=0, level='sector').sort_values('mean_co2', ascending=False)
+    mean_co2_sector[data]['pct_co2'] = mean_co2_sector[data]['mean_co2'] / mean_co2_sector[data]['mean_co2'].sum() * 100
+    mean_co2_sector[data]['pct_co2_cumu'] = mean_co2_sector[data]['pct_co2'].cumsum()
 
 ##############
 # Start Loop #
 ##############
 
-sectors = mean_co2_sectors['Total'].index.tolist()
+sectors = mean_co2_sector['Total'].index.tolist()
 
 results = pd.DataFrame()
 
-for sector in sectors:
+for sector in sectors[:5]:
     
     #############################
     ## Change in trend - RMSPE ##
@@ -190,7 +189,7 @@ for sector in sectors:
     ###################
     
     # sort countries by mean_co2
-    order = mean_co2['Total'].sort_values('mean_co2', ascending=False).index.tolist()
+    order = mean_co2[data].loc[sector].sort_values('mean_co2', ascending=False).index.tolist()
     
     # Stripplots
     fs = 16
@@ -207,9 +206,10 @@ for sector in sectors:
     
         sns.stripplot(ax=axs[0], data=plot_data, x='Country', y='RMSPE', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
         axs[0].set_xlabel('')
-        axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
+        axs[0].set_ylabel('RMSPE (%); log scale', fontsize=fs)
         axs[0].tick_params(axis='y', labelsize=fs)
         axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+        axs[0].set_yscale('log')
         
         sns.stripplot(ax=axs[1], data=plot_data, x='Country', y='pct_same', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
         axs[1].set_ylim(-5, 105)
@@ -217,7 +217,6 @@ for sector in sectors:
         axs[1].set_ylabel('Similarity direction (%)', fontsize=fs); 
         axs[1].tick_params(axis='y', labelsize=fs)
         axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-        #axs[1].set_yscale('log')
         
         axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
         axs[1].xaxis.set_ticks_position('top') # the rest is the same
@@ -235,64 +234,4 @@ for sector in sectors:
         plot_data['Sector'] = sector
         results = results.append(plot_data.reset_index())
     
-    # Boxplots with data on x
-    
-    temp = cp.copy(results)
-    temp['dataset'] = temp['dataset'] + '\n\n'
-    
-    # Boxplot
-    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
-    sns.boxplot(ax=axs[0], data=temp, x='dataset', y='RMSPE', hue='Type', showfliers=True)
-    axs[0].set_xlabel('')
-    axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
-    axs[0].tick_params(axis='y', labelsize=fs)
-    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-    
-    sns.boxplot(ax=axs[1], data=temp, x='dataset', y='pct_same', hue='Type', showfliers=True)
-    axs[1].set_ylim(-5, 105)
-    axs[1].set_xlabel('')
-    axs[1].set_ylabel('Similarity direction (%)', fontsize=fs); 
-    axs[1].tick_params(axis='y', labelsize=fs)
-    axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-    #axs[1].set_yscale('log')
-        
-    axs[1].set_xticklabels(axs[1].get_xticklabels(), va='center', fontsize=fs); 
-    axs[1].xaxis.set_ticks_position('top') # the rest is the same
-    
-    for c in range(len(plot_data['dataset'].unique())):
-        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
-        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_' + sector + '.png', dpi=200, bbox_inches='tight')
-    plt.show()
-    
-    
-    ## Violinplot 
-    
-    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
-    
-    sns.violinplot(ax=axs[0], data=temp, x='dataset', y='RMSPE', hue='Type', showfliers=True)
-    axs[0].set_xlabel('')
-    axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
-    axs[0].tick_params(axis='y', labelsize=fs)
-    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-    
-    sns.violinplot(ax=axs[1], data=temp, x='dataset', y='pct_same', hue='Type', showfliers=True)
-    axs[1].set_ylim(-5, 105)
-    axs[1].set_xlabel('')
-    axs[1].set_ylabel('Similarity direction (%)', fontsize=fs); 
-    axs[1].tick_params(axis='y', labelsize=fs)
-    axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-    #axs[1].set_yscale('log')
-        
-    axs[1].set_xticklabels(axs[1].get_xticklabels(), va='center', fontsize=fs); 
-    axs[1].xaxis.set_ticks_position('top') # the rest is the same
-    
-    for c in range(len(plot_data['dataset'].unique())):
-        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
-        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
-        
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'Violinplot_similarity_bydata_' + sector + '.png', dpi=200, bbox_inches='tight')
-    plt.show()
 
