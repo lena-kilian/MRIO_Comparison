@@ -131,6 +131,11 @@ results_im = change_im.reset_index().merge(change_im_country[['rank']], on='coun
 ## Plot together ##
 ###################
 
+mean_co2 = pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})
+mean_co2_im = pd.DataFrame(summary_im.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})
+
+order = mean_co2.sort_values('mean_co2', ascending=False).index.tolist()
+
 fs = 16
 pal = 'tab10'
 c_box = '#000000'
@@ -142,15 +147,28 @@ data_dict = {'oecd, figaro':'ICIO, Figaro', 'oecd, exio':'Exiobase, ICIO', 'oecd
 
 fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 
-plot_data = change.loc[change_country.index.tolist()].rename(index=country_dict).swaplevel(axis=0).rename(index=data_dict).reset_index()
+plot_data = change.swaplevel(axis=0).rename(index=data_dict).reset_index()
+plot_data = plot_data.merge(mean_co2, on='country').sort_values(['dataset']).set_index('country').loc[order].rename(index=country_dict).reset_index()
 plot_data['country'] = '                     ' + plot_data['country']
 sns.stripplot(ax=axs[0], data=plot_data,
               x='country', y='pct_same', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
-plot_data_imports = change_im.loc[change_country.index.tolist()].rename(index=country_dict).swaplevel(axis=0).rename(index=data_dict).reset_index()
+axs0_2 = axs[0].twinx()
+sns.lineplot(ax=axs0_2, data=plot_data, y='mean_co2', x='country', color='k')
+axs0_2.tick_params(axis='y', labelsize=fs)
+axs0_2.set_ylabel('Footprint (CO2)', fontsize=fs); 
+
+plot_data_imports = change_im.swaplevel(axis=0).rename(index=data_dict).reset_index()
+plot_data_imports = plot_data_imports.merge(mean_co2_im, on='country').sort_values(['dataset']).set_index('country').loc[order].rename(index=country_dict).reset_index()
 plot_data_imports['country'] = '                     ' + plot_data_imports['country']
+
 sns.stripplot(ax=axs[1], data=plot_data_imports, 
               x='country', y='pct_same', hue='dataset', s=8, jitter=0.4, palette=pal); 
+
+axs1_2 = axs[1].twinx()
+sns.lineplot(ax=axs1_2, data=plot_data_imports, y='mean_co2', x='country', color='k')
+axs1_2.tick_params(axis='y', labelsize=fs)
+axs1_2.set_ylabel('Footprint (CO2)', fontsize=fs); 
 
 plt.setp(axs[0].artists, edgecolor=c_box, facecolor='w')
 sns.boxplot(ax=axs[0], data=plot_data, x='country', y='pct_same', color='w', showfliers=False) 
@@ -178,10 +196,12 @@ plt.show()
 # Plot with data on x
 
 plot_data2 = plot_data.set_index(['country', 'dataset'])[['pct_same']].join(plot_data_imports.set_index(['country', 'dataset'])[['pct_same']], rsuffix='_imports')\
-    .stack().reset_index().rename(columns={0:'pct_same'})
+    .stack().reset_index().rename(columns={'level_2':'Same_direction', 0:'pct_same'})
 temp = plot_data2.loc[plot_data2['Same_direction'] == 'pct_same'].groupby(['dataset']).mean().rename(columns={'pct_same':'mean'}).reset_index()
 plot_data2 = plot_data2.merge(temp, on='dataset').sort_values('mean', ascending=False)
 plot_data2['Type'] = plot_data2['Same_direction'].map({'pct_same':'Total', 'pct_same_imports':'Imports'})
+
+plot_data2 = plot_data2.sort_values('dataset')
 
 fig, ax = plt.subplots(figsize=(12, 6))
 sns.boxplot(ax=ax, data=plot_data2, x='dataset', y='pct_same', hue='Type', showfliers=False)

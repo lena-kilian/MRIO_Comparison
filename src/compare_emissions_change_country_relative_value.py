@@ -100,7 +100,7 @@ for c in temp.columns.levels[0]:
         
         change = change.append(temp3)
         
-change = change.merge(change.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values('mean')
+change = change.merge(change.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values(['mean', 'dataset'])
 
 # Imports
 
@@ -123,13 +123,16 @@ for c in temp.columns.levels[0]:
         
 change_im = change_im.merge(change_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country')
 
-change_im = change_im.set_index('country').loc[change['country'].unique()].reset_index()
-
 ###################
 ## Plot together ##
 ###################
 
 # Plot with country on x
+
+mean_co2 = pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})
+mean_co2_im = pd.DataFrame(summary_im.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})
+
+order = mean_co2.sort_values('mean_co2', ascending=False).index.tolist()
 
 fs = 16
 pal = 'tab10'
@@ -145,21 +148,32 @@ data_dict = {'oecd, figaro':'ICIO, Figaro', 'oecd, exio':'Exiobase, ICIO', 'oecd
 
 fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 
-plot_data = cp.copy(change)
-plot_data['country'] = plot_data['country'].map(country_dict)
+plot_data = cp.copy(change).merge(mean_co2, on='country').sort_values(['dataset']).set_index('country').loc[order].rename(index=country_dict).reset_index()
 plot_data['dataset'] = plot_data['dataset'].map(data_dict)
 plot_data['country'] = '                     ' + plot_data['country']
 sns.stripplot(ax=axs[0], data=plot_data, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
-plot_data_imports = cp.copy(change_im)
-plot_data_imports['country'] = plot_data_imports['country'].map(country_dict)
+#axs0_2 = axs[0].twinx()
+#sns.lineplot(ax=axs0_2, data=plot_data, y='mean_co2', x='country', color='k')
+#axs0_2.tick_params(axis='y', labelsize=fs)
+#axs0_2.set_ylabel('Footprint (CO2)', fontsize=fs); 
+
+
+plot_data_imports = cp.copy(change_im).merge(mean_co2_im, on='country').sort_values(['dataset']).set_index('country').loc[order].rename(index=country_dict).reset_index()
 plot_data_imports['dataset'] = plot_data_imports['dataset'].map(data_dict)
 plot_data_imports['country'] = '                     ' + plot_data_imports['country']
+plot_data_imports = plot_data_imports.sort_values(['dataset']).set_index('country').loc[plot_data['country'].unique()].reset_index()
 sns.stripplot(ax=axs[1], data=plot_data_imports, x='country', y='RMSPE', hue='dataset', s=8, jitter=0.4, palette=pal); 
 
+#axs1_2 = axs[1].twinx()
+#sns.lineplot(ax=axs1_2, data=plot_data_imports, y='mean_co2', x='country', color='k')
+#axs1_2.tick_params(axis='y', labelsize=fs)
+#axs1_2.set_ylabel('Footprint (CO2)', fontsize=fs); 
+
+
 plt.setp(axs[0].artists, edgecolor=c_box, facecolor='w')
-sns.boxplot(ax=axs[0], data=plot_data, x='country', y='RMSPE', color='w', showfliers=False) 
-sns.boxplot(ax=axs[1], data=plot_data_imports, x='country', y='RMSPE', color='w', showfliers=False)
+#sns.boxplot(ax=axs[0], data=plot_data, x='country', y='RMSPE', color='w', showfliers=False) 
+#sns.boxplot(ax=axs[1], data=plot_data_imports, x='country', y='RMSPE', color='w', showfliers=False)
 
 axs[0].set_ylabel('Total footprint RMSPE (%)', fontsize=fs); 
 axs[1].set_ylabel('Imports RMSPE (%)', fontsize=fs)
