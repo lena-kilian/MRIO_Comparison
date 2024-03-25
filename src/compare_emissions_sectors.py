@@ -212,7 +212,7 @@ for data in ['Total', 'Imports']:
         axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
     
     fig.tight_layout()
-    plt.savefig(plot_filepath + data + 'Stripplot_similarity_bycountry_' + data + '.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + data + '.png', dpi=200, bbox_inches='tight')
     plt.show()
     
     plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean_co2[data], on='country')
