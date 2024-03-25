@@ -60,7 +60,7 @@ for year in years:
     temp = temp_oecd.join(temp_figaro).join(temp_gloria).join(temp_exio) 
     temp['year'] = year
     summary = summary.append(temp.reset_index())
-summary = summary.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
+summary = summary.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'year', 'sector']).rename(index=country_dict).rename(columns=data_dict)
     
 # Imports
 
@@ -76,27 +76,37 @@ for year in years:
     temp_all = temp['oecd'].join(temp['figaro']).join(temp['gloria']).join(temp['exio'])
     temp_all['year'] = year
     summary_im = summary_im.append(temp_all.reset_index())
-summary_im = summary_im.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
+summary_im = summary_im.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'year', 'sector']).rename(index=country_dict).rename(columns=data_dict)
 
 # Get means
 
-mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
-            'Imports' : pd.DataFrame(summary_im.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})}
+mean_co2 = {'Total' : pd.DataFrame(summary.sum(axis=0, level=['country', 'year']).mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
+            'Imports' : pd.DataFrame(summary_im.sum(axis=0, level=['country', 'year']).mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})}
 
+mean_co2_sectors = {'Total' : pd.DataFrame(summary.sum(axis=0, level=['sector', 'year']).mean(axis=0, level='sector').mean(axis=1)).rename(columns={0:'mean_co2'}), 
+                    'Imports' : pd.DataFrame(summary_im.sum(axis=0, level=['sector', 'year']).mean(axis=0, level='sector').mean(axis=1)).rename(columns={0:'mean_co2'})}
+
+for data in ['Total', 'Imports']:
+    mean_co2_sectors[data] = mean_co2_sectors[data].sort_values('mean_co2', ascending=False)
+    mean_co2_sectors[data]['pct_co2'] = mean_co2_sectors[data]['mean_co2'] / mean_co2_sectors[data]['mean_co2'].sum() * 100
+    mean_co2_sectors[data]['pct_co2_cumu'] = mean_co2_sectors[data]['pct_co2'].cumsum()
 
 ##############
 # Start Loop #
 ##############
-    
-#for sector in sectors:
+
+sectors = mean_co2_sectors['Total'].index.tolist()
+
+results = pd.DataFrame()
+
+for sector in sectors:
     
     #############################
     ## Change in trend - RMSPE ##
     #############################
     
     # Total
-    
-    temp = summary.unstack('country').swaplevel(axis=1)
+    temp = summary.unstack('country').swaplevel(axis=1).swaplevel(axis=0).loc[sector]
     data_rmspe = pd.DataFrame(columns=['country'])
     # Convert to True vs False
     for c in temp.columns.levels[0]:
@@ -112,8 +122,7 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
     data_rmspe = data_rmspe.merge(data_rmspe.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values(['mean', 'dataset'])
     
     # Imports
-    
-    temp = summary_im.unstack('country').swaplevel(axis=1)
+    temp = summary_im.unstack('country').swaplevel(axis=1).swaplevel(axis=0).loc[sector]
     data_rmspe_im = pd.DataFrame(columns=['country'])
     # Convert to True vs False
     for c in temp.columns.levels[0]:
@@ -129,7 +138,6 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
     data_rmspe_im = data_rmspe_im.merge(data_rmspe_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country')
     
     # Combine all
-    
     data_rmspe = {'Total':data_rmspe, 'Imports':data_rmspe_im}
     
     #################################
@@ -137,8 +145,7 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
     #################################
     
     # Total
-    
-    temp = summary.unstack(level=1).stack(level=0)
+    temp = summary.unstack('year').swaplevel(axis=1).swaplevel(axis=0).loc[sector].stack(level=1).fillna(0)
     data_direction = temp[years[1:]]
     for year in years[1:]:
         data_direction[year] = temp[year] / temp[year - 1]
@@ -157,8 +164,7 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
     data_direction['pct_same'] = data_direction[True] / (data_direction[True] + data_direction[False])*100
     
     # Imports
-    
-    temp = summary_im.unstack(level=1).stack(level=0)
+    temp = summary_im.unstack('year').swaplevel(axis=1).swaplevel(axis=0).loc[sector].stack(level=1).fillna(0)
     data_direction_im = temp[years[1:]]
     for year in years[1:]:
         data_direction_im[year] = temp[year] / temp[year - 1]
@@ -177,7 +183,6 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
     data_direction_im['pct_same'] = data_direction_im[True] / (data_direction_im[True] + data_direction_im[False])*100
     
     # Combine all
-    
     data_direction = {'Total':data_direction, 'Imports':data_direction_im}
     
     ###################
@@ -194,7 +199,6 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
     c_vlines = '#B9B9B9'
     point_size = 9
     
-    results = pd.DataFrame()
     for data in ['Total', 'Imports']:
         plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset']).set_index('country').loc[order].reset_index()
         plot_data['Country'] = '                     ' + plot_data['country']
@@ -223,11 +227,12 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
             axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
         
         fig.tight_layout()
-        plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + data + '.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + data + '_' + sector + '.png', dpi=200, bbox_inches='tight')
         plt.show()
         
         plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean_co2[data], on='country')
         plot_data['Type'] = data
+        plot_data['Sector'] = sector
         results = results.append(plot_data.reset_index())
     
     # Boxplots with data on x
@@ -258,7 +263,7 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
         axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
         axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'Boxplot_similarity_bydata.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_' + sector + '.png', dpi=200, bbox_inches='tight')
     plt.show()
     
     
@@ -288,6 +293,6 @@ mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(ax
         axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
         
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'Violinplot_similarity_bydata.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Violinplot_similarity_bydata_' + sector + '.png', dpi=200, bbox_inches='tight')
     plt.show()
 
