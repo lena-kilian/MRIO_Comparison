@@ -43,7 +43,38 @@ def calc_rmspe(x1, x2):
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
 
+sector_dict = {
+    'Electricity, gas, steam and air conditioning supply' : 'Elect., gas, steam,\nair conditioning',
+    'Other non-metallic mineral products' : 'Non-metallic\nmineral products',
+    'Land transport and transport via pipelines' : 'Land transport',
+    'Food products, beverages and tobacco' : 'Food, beverages\nand tobacco',
+    'Chemical, parmaceuticals and botanical products' : 'Chemicals,\nparmaceuticals,\nbotanicals',
+    'Coke and refined petroleum products' : 'Coke, refined\npetroleum',
+    'Machinery, computer, electronic, optical equipment, and other machinery and equipment' : 'Machinery and\nequipment',
+    'Public administration and defence; compulsory social security' : 'Compulsory social\nsecurity',
+    'Mining and quarrying, energy producing products' : 'Mining and\nquarrying',
+    'Agriculture, hunting, forestry' : 'Agriculture,\nhunting, forestry',
+    'Manufacturing nec; repair and installation of machinery and equipment' : 'Manufacturing nec',
+    'Human health and social work activities' : 'Human care,\nsocial work',
+    'Wholesale and retail trade; repair of motor vehicles' : 'Wholesale,\nretail trade',
+    'Motor vehicles, trailers and semi-trailers' : 'Motor vehicles,\ntrailers',
+    'Administrative, support and other professional and supporting transport services' : 'Professional\nservices',
+    'Textiles, textile products, leather and footwear' : 'Textiles,\nleather products',
+    'Other service activities' : 'Other services',
+    'IT, information, postal, communication services and publishing' : 'IT, communication,\npublishing services',
+    'Accommodation and food service activities' : 'Accomm., food\nservicess',
+    'Rubber and plastics products' : 'Rubber, plastics\nproducts',
+    'Paper products and printing' : 'Paper products',
+    'Water supply; sewerage, waste management and remediation activities' : 'Water supply,\nsewerage, waste',
+    'Fabricated metal products' : 'Metal products',
+    'Other transport equipment' : 'Other transport\nequipment',
+    'Financial and insurance activities' : 'Finance, insurance\nactivities',
+    'Fishing and aquaculture' : 'Fishing, aquaculture',
+    'Wood and products of wood and cork' : 'Wood products',
+    'Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use':'Households as\nemployers'
+     }
 
+               
 ###############
 ## Summarise ##
 ###############
@@ -98,7 +129,9 @@ sectors = mean_co2_sector['Total'].index.tolist()
 
 results = pd.DataFrame()
 
-for sector in sectors[:5]:
+top_sectors = sectors[:10]
+
+for sector in top_sectors:
     
     #############################
     ## Change in trend - RMSPE ##
@@ -213,13 +246,11 @@ for sector in sectors[:5]:
         plot_data['Sector'] = sector
         results = results.append(plot_data.reset_index())
         
-        if sector == 'Land transport and transport via pipelines':
-            plot_data = plot_data.loc[plot_data['RMSPE'] < 10**10]
-        
         sns.stripplot(ax=axs[i], data=plot_data, x='Country', y='RMSPE', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
         axs[i].set_xlabel('')
         axs[i].tick_params(axis='y', labelsize=fs)
         axs[i].set_yscale('log')
+        axs[i].set_ylim(0, 10**5)
         
         if data == 'Total':
             ax_twin0 = axs[i].twinx()
@@ -248,3 +279,95 @@ for sector in sectors[:5]:
     plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + sector + '.png', dpi=200, bbox_inches='tight')
     plt.show()
 
+    
+# plot with data on the x 
+
+# RMSPE
+
+fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
+for i in range(2):
+    data = ['Total', 'Imports'][i]
+    
+    temp = results.loc[results['Type'] == data].set_index('Sector').loc[top_sectors]
+    temp2 = temp.groupby(['Sector', 'country']).mean().sum(axis=0, level='Sector')[['mean_co2']]\
+        .loc[top_sectors].rename(index=sector_dict).reset_index()
+    
+    temp = temp.rename(index=sector_dict).reset_index()
+    temp['Sector'] = temp['Sector'] + '\n\n'
+    
+    # Boxplot
+    sns.boxplot(ax=axs[i], data=temp, hue='dataset', y='RMSPE', x='Sector', showfliers=True)
+    axs[i].set_xlabel('')
+    axs[i].set_ylabel('RMSPE (%)', fontsize=fs)
+    axs[i].tick_params(axis='y', labelsize=fs)
+    axs[i].set_yscale('log')
+    axs[i].set_ylim(0, 10**5)
+
+    ax_twin = axs[i].twinx()
+    sns.lineplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k')
+    ax_twin.tick_params(axis='y', labelsize=fs)
+    
+    if data == 'Total':
+        ax_twin.set_ylabel('Total emissions (CO2)', fontsize=fs); 
+    else:
+        ax_twin.set_ylabel('Imported emissions (CO2)', fontsize=fs); 
+
+axs[0].set_ylabel('Total emissions RMSPE (%)', fontsize=fs)
+axs[1].set_ylabel('Imported emissions RMSPE (%)', fontsize=fs)
+axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=6)
+axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=6)
+
+axs[1].set_xticklabels(axs[1].get_xticklabels(), va='center', fontsize=fs); 
+axs[1].xaxis.set_ticks_position('top') # the rest is the same
+
+for c in range(len(temp['Sector'].unique())):
+    axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
+    axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
+fig.tight_layout()
+plt.savefig(plot_filepath + 'Boxplot_RMSPE_bysector.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
+# Direction
+
+fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
+for i in range(2):
+    data = ['Total', 'Imports'][i]
+    
+    temp = results.loc[results['Type'] == data].set_index('Sector').loc[top_sectors]
+    temp2 = temp.groupby(['Sector', 'country']).mean().sum(axis=0, level='Sector')[['mean_co2']]\
+        .loc[top_sectors].rename(index=sector_dict).reset_index()
+    
+    temp = temp.rename(index=sector_dict).reset_index()
+    temp['Sector'] = temp['Sector'] + '\n\n'
+    
+    # Boxplot
+    sns.boxplot(ax=axs[i], data=temp, hue='dataset', y='pct_same', x='Sector', showfliers=True)
+    axs[i].set_xlabel('')
+    axs[i].set_ylabel('Similarity direction (%)', fontsize=fs)
+    axs[i].tick_params(axis='y', labelsize=fs)
+    axs[i].set_ylim(-5, 105)
+    
+    ax_twin = axs[i].twinx()
+    sns.lineplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k')
+    ax_twin.tick_params(axis='y', labelsize=fs)
+    
+    if data == 'Total':
+        ax_twin.set_ylabel('Total emissions (CO2)', fontsize=fs); 
+    else:
+        ax_twin.set_ylabel('Imported emissions (CO2)', fontsize=fs); 
+
+axs[0].set_ylabel('Total emissions similarity direction (%)', fontsize=fs)
+axs[1].set_ylabel('Imported emissions similarity direction (%)', fontsize=fs)
+axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=6)
+axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=6)
+
+axs[1].set_xticklabels(axs[1].get_xticklabels(), va='center', fontsize=fs); 
+axs[1].xaxis.set_ticks_position('top') # the rest is the same
+
+for c in range(len(temp['Sector'].unique())):
+    axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
+    axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
+fig.tight_layout()
+plt.savefig(plot_filepath + 'Boxplot_Direction_bysector.png', dpi=200, bbox_inches='tight')
+plt.show()
