@@ -371,3 +371,77 @@ for c in range(len(temp['Sector'].unique())):
 fig.tight_layout()
 plt.savefig(plot_filepath + 'Boxplot_Direction_bysector.png', dpi=200, bbox_inches='tight')
 plt.show()
+
+
+
+
+# plot with data on the x 
+
+
+for data in ['Total', 'Imports']:
+    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
+        
+    temp = results.loc[results['Type'] == data].set_index('Sector').loc[top_sectors]
+    temp2 = temp.groupby(['Sector', 'country']).mean().sum(axis=0, level='Sector')[['mean_co2']]\
+        .loc[top_sectors].rename(index=sector_dict).reset_index()
+    
+    temp = temp.rename(index=sector_dict).reset_index()
+    temp['Sector'] = temp['Sector'] + '\n\n'
+    
+    # Boxplot
+    # RMSPE
+    sns.boxplot(ax=axs[0], data=temp, hue='dataset', y='RMSPE', x='Sector', showfliers=True)
+    axs[0].set_xlabel('')
+    axs[0].tick_params(axis='y', labelsize=fs)
+    axs[0].set_yscale('log')
+    axs[0].set_ylim(0, 10**5)
+    
+    ax_twin = axs[0].twinx()
+    sns.lineplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k')
+    ax_twin.tick_params(axis='y', labelsize=fs)
+    
+    if data == 'Total':
+        ax_twin.set_ylabel('Total emissions (CO2)', fontsize=fs); 
+    else:
+        ax_twin.set_ylabel('Imported emissions (CO2)', fontsize=fs); 
+        
+    # Direction 
+    temp = results.loc[results['Type'] == data].set_index('Sector').loc[top_sectors]
+    temp2 = temp.groupby(['Sector', 'country']).mean().sum(axis=0, level='Sector')[['mean_co2']]\
+        .loc[top_sectors].rename(index=sector_dict).reset_index()
+    
+    temp = temp.rename(index=sector_dict).reset_index()
+    temp['Sector'] = temp['Sector'] + '\n\n'
+    
+    
+    sns.boxplot(ax=axs[1], data=temp, hue='dataset', y='pct_same', x='Sector', showfliers=True)
+    axs[1].set_xlabel('')
+    axs[1].tick_params(axis='y', labelsize=fs)
+    axs[1].set_ylim(-5, 105)
+    
+    ax_twin = axs[1].twinx()
+    sns.lineplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k')
+    ax_twin.tick_params(axis='y', labelsize=fs)
+    
+    if data == 'Total':
+        ax_twin.set_ylabel('Total emissions (CO2)', fontsize=fs); 
+    else:
+        ax_twin.set_ylabel('Imported emissions (CO2)', fontsize=fs); 
+        
+    # Labels
+    
+    axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
+    axs[1].set_ylabel('Similarity direction (%)', fontsize=fs)
+    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=6)
+    axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=6)
+    
+    axs[1].set_xticklabels(axs[1].get_xticklabels(), va='center', fontsize=fs); 
+    axs[1].xaxis.set_ticks_position('top') # the rest is the same
+    
+    for c in range(len(temp['Sector'].unique())):
+        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
+        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'Boxplot_bysector_' + data + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
+

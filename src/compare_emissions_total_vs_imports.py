@@ -102,7 +102,7 @@ plot_data['Dataset'] = plot_data['dataset'].map(data_dict)
 plot_data = plot_data.sort_values('Dataset').set_index('country').loc[order].rename(index=country_dict).reset_index()
 
 
-## Linplots
+## Lineplots
 
 fig, ax1 = plt.subplots(nrows=1, figsize=(20, 5))
 
@@ -133,4 +133,65 @@ for c in range(len(plot_data['country'].unique())):
 
 fig.tight_layout()
 plt.savefig(plot_filepath + 'Lineplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
+## Pointplot
+
+temp = cp.copy(plot_data).set_index(['country', 'dataset', 'Dataset', 'Type']).unstack('Type')
+temp[('CO2', 'Domestic')] = temp[('CO2', 'Total')] - temp[('CO2', 'Imports')]
+order = temp.mean(level=0).sort_values([('CO2', 'Total')], ascending=False).index.tolist()
+temp = temp.drop([('CO2', 'Total')], axis=1).stack(level=1).reset_index()
+temp = temp.sort_values(['Type'], ascending=False).sort_values(['Dataset']).set_index(['country', 'Dataset', 'Type']).loc[order].reset_index()
+
+fig, ax1 = plt.subplots(nrows=1, figsize=(20, 5))
+
+sns.scatterplot(ax=ax1, data=temp, x='country', y='CO2', hue='Dataset', style='Type')
+plt.yscale('log')
+
+
+ax1.set_ylabel('Footprint (CO2)', fontsize=fs); 
+
+ax1.set_xlabel('')
+ax1.tick_params(axis='y', labelsize=fs)
+ax1.tick_params(axis='x', labelsize=fs, rotation=90)
+ax1.legend(loc='upper center', bbox_to_anchor=(0.5, 1.35), fontsize=fs, ncol=len(plot_data['Dataset'].unique())+4)
+for c in range(len(plot_data['country'].unique())):
+    ax1.axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'pointplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
+## Barplots
+
+temp = cp.copy(plot_data).set_index(['country', 'dataset', 'Dataset', 'Type']).unstack('Type')
+temp[('CO2', 'Domestic')] = temp[('CO2', 'Total')] - temp[('CO2', 'Imports')]
+order = temp.mean(level=0).sort_values([('CO2', 'Total')], ascending=False).index.tolist()
+temp = temp.drop([('CO2', 'Total')], axis=1).stack(level=1).reset_index()
+temp = temp.sort_values(['Type'], ascending=False).sort_values(['Dataset']).set_index(['country', 'Dataset', 'Type']).loc[order].reset_index()
+
+temp['Type'] = temp['Dataset'] + ' - '  + temp['Type']
+temp['country'] = temp['Dataset'] + ' \t '  + temp['country']
+
+fig, ax1 = plt.subplots(nrows=1, figsize=(30, 5))
+
+sns.barplot(ax=ax1, data=temp, x='country', y='CO2', hue='Type', dodge=False, ci=None, palette='Paired')
+plt.yscale('log')
+
+
+ax1.set_ylabel('Footprint (CO2)', fontsize=fs); 
+
+ax1.set_xlabel('')
+ax1.tick_params(axis='y', labelsize=fs)
+ax1.tick_params(axis='x', labelsize=fs, rotation=90)
+ax1.legend(loc='upper center', bbox_to_anchor=(0.5, 1.35), fontsize=fs, ncol=len(plot_data['Dataset'].unique())+4)
+for c in range(len(plot_data['country'].unique())):
+    ax1.axvline(4*c+0.5, c=c_vlines, linestyle=':')
+    
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'barplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
 plt.show()
