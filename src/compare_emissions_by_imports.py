@@ -11,8 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import math
-import matplotlib as mpl
+import copy as cp
 
 # set working directory
 # make different path depending on operating system
@@ -31,35 +30,38 @@ co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'r
 datasets = list(co2_all.keys())
 years = list(co2_all[datasets[0]].keys())
 
-data_comb = ['oecd, figaro', 'oecd, exio', 'oecd, gloria', 'figaro, exio', 'figaro, gloria', 'exio, gloria']
+data_comb = ['ICIO, Figaro', 'Exiobase, ICIO', 'ICIO, Gloria', 'Exiobase, Figaro', 'Figaro, Gloria', 'Exiobase, Gloria']
 
-def rmspe(x1, x2):
+def calc_rmspe(x1, x2):
     pct_diff = ((x1/x2) - 1) * 100
     pct_sq = pct_diff **2
     mean_sq = np.mean(pct_sq)
     error = np.sqrt(mean_sq)
     return(error)
 
+
+country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
+data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
+
+
 ###############
 ## Summarise ##
 ###############
 
 # Total
+
 summary = pd.DataFrame()
 for year in years:
     temp_oecd = pd.DataFrame(co2_all['oecd'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'oecd'})
     temp_figaro = pd.DataFrame(co2_all['figaro'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'figaro'})
     temp_gloria = pd.DataFrame(co2_all['gloria'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'gloria'})
     temp_exio = pd.DataFrame(co2_all['exio'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio'})
-    
-    temp = temp_oecd.join(temp_figaro).join(temp_gloria).join(temp_exio)
-    
+    # merge all
+    temp = temp_oecd.join(temp_figaro).join(temp_gloria).join(temp_exio) 
     temp['year'] = year
-    
     summary = summary.append(temp.reset_index())
+summary = summary.rename(columns={'index':'country'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
     
-summary = summary.rename(columns={'index':'country'}).set_index(['country', 'year'])
-
 # Imports
 
 summary_im = pd.DataFrame()
@@ -70,80 +72,112 @@ for year in years:
         for country in temp[item].index.levels[0]:
             temp[item].loc[country, country] = 0
         temp[item] = pd.DataFrame(temp[item].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:item})
-        
+    # merge all
     temp_all = temp['oecd'].join(temp['figaro']).join(temp['gloria']).join(temp['exio'])
     temp_all['year'] = year
     summary_im = summary_im.append(temp_all.reset_index())
-    
-summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country', 'year'])
+summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
 
-prop_im = summary_im / summary
-prop_im = prop_im.mean(axis=0, level=0)
-prop_im['prop_im_mean'] = prop_im.mean(1)
-prop_im['percentage_imported'] = [math.floor(x * 100) for x in prop_im['prop_im_mean']]
+# Get means
 
-pal = 'RdBu' # 'viridis' # 'Spectral' 
-cols = sns.color_palette(pal, as_cmap=True); cols2 = cols(np.linspace(0, 1, 100))
-prop_im['percentage_imported_c']  = [cols2[x] for x in prop_im['percentage_imported']]
+mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
+            'Imports' : pd.DataFrame(summary_im.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})}
 
-prop_im['percentage_imported'] = prop_im['prop_im_mean'] * 100
+prop_im = (summary_im / summary * 100).mean(axis=0, level='country').mean(axis=1).reset_index().rename(columns={0:'prop_imported'})
 
-steps = 20
-prop_im['percentage_imported_steps'] = 'NA'
-for i in range(0, 100, steps):
-    prop_im.loc[(prop_im['percentage_imported'] >= i) & (prop_im['percentage_imported'] <= i+20), 
-                'percentage_imported_steps'] = str(i) + ' - ' + str(i+steps)
-    
-
-#####################
-## Change in trend ##
-#####################
+#############################
+## Change in trend - RMSPE ##
+#############################
 
 # Total
 
 temp = summary.unstack('country').swaplevel(axis=1)
-change = pd.DataFrame(columns=['country'])
+data_rmspe = pd.DataFrame(columns=['country'])
 # Convert to True vs False
 for c in temp.columns.levels[0]:
     temp2 = temp[c]
     for comb in data_comb:
         d0 = comb.split(', ')[0]
         d1 = comb.split(', ')[1]
-    
         temp3 = pd.DataFrame(index=[0])
         temp3['country'] = c
-        temp3[comb] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
-        
+        temp3[comb] = (calc_rmspe(temp2[d0], temp2[d1]) + calc_rmspe(temp2[d1], temp2[d0]))/2
         temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
-        
-        change = change.append(temp3)
-        
-change = change.merge(change.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values('mean')
-change = change.set_index('country').join(prop_im[['percentage_imported', 'percentage_imported_c', 'percentage_imported_steps']])\
-    .reset_index().sort_values('percentage_imported')
+        data_rmspe = data_rmspe.append(temp3)
+data_rmspe = data_rmspe.merge(data_rmspe.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values(['mean', 'dataset'])
+data_rmspe = data_rmspe.merge(prop_im, on ='country')
 
 # Imports
 
 temp = summary_im.unstack('country').swaplevel(axis=1)
-change_im = pd.DataFrame(columns=['country'])
+data_rmspe_im = pd.DataFrame(columns=['country'])
 # Convert to True vs False
 for c in temp.columns.levels[0]:
     temp2 = temp[c]
     for comb in data_comb:
         d0 = comb.split(', ')[0]
         d1 = comb.split(', ')[1]
-    
         temp3 = pd.DataFrame(index=[0])
         temp3['country'] = c
-        temp3[comb] = (rmspe(temp2[d0], temp2[d1]) + rmspe(temp2[d1], temp2[d0]))/2
-        
+        temp3[comb] = (calc_rmspe(temp2[d0], temp2[d1]) + calc_rmspe(temp2[d1], temp2[d0]))/2
         temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
-        
-        change_im = change_im.append(temp3)
-        
-change_im = change_im.merge(change_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values('mean')
-change_im = change_im.set_index('country').join(prop_im[['percentage_imported', 'percentage_imported_c', 'percentage_imported_steps']])\
-    .reset_index().sort_values('percentage_imported')
+        data_rmspe_im = data_rmspe_im.append(temp3)
+data_rmspe_im = data_rmspe_im.merge(data_rmspe_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country')
+data_rmspe_im = data_rmspe_im.merge(prop_im, on ='country')
+
+# Combine all
+
+data_rmspe = {'Total':data_rmspe, 'Imports':data_rmspe_im}
+
+#################################
+## Change in trend - Direction ##
+#################################
+
+# Total
+
+temp = summary.unstack(level=1).stack(level=0)
+data_direction = temp[years[1:]]
+for year in years[1:]:
+    data_direction[year] = temp[year] / temp[year - 1]
+data_direction = data_direction.unstack(level=1).stack(level=0)
+# Convert to True vs False
+for comb in data_comb:
+    d0 = comb.split(', ')[0]
+    d1 = comb.split(', ')[1]
+    data_direction[comb] = False
+    data_direction.loc[((data_direction[d0]>1) & (data_direction[d1]>1) | (data_direction[d0]<1) & (data_direction[d1]<1) | 
+                        (data_direction[d0]==1) & (data_direction[d1]==1)), comb] = True
+data_direction = data_direction[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
+data_direction['count'] = 1
+data_direction = data_direction.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
+    .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
+data_direction['pct_same'] = data_direction[True] / (data_direction[True] + data_direction[False])*100
+data_direction = data_direction.reset_index().merge(prop_im, on='country')
+
+# Imports
+
+temp = summary_im.unstack(level=1).stack(level=0)
+data_direction_im = temp[years[1:]]
+for year in years[1:]:
+    data_direction_im[year] = temp[year] / temp[year - 1]
+data_direction_im = data_direction_im.unstack(level=1).stack(level=0)
+# Convert to True vs False
+for comb in data_comb:
+    d0 = comb.split(', ')[0]
+    d1 = comb.split(', ')[1]
+    data_direction_im[comb] = False
+    data_direction_im.loc[((data_direction_im[d0]>1) & (data_direction_im[d1]>1) | (data_direction_im[d0]<1) & (data_direction_im[d1]<1) | 
+                           (data_direction_im[d0]==1) & (data_direction_im[d1]==1)), comb] = True
+data_direction_im = data_direction_im[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
+data_direction_im['count'] = 1
+data_direction_im = data_direction_im.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
+    .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
+data_direction_im['pct_same'] = data_direction_im[True] / (data_direction_im[True] + data_direction_im[False])*100
+data_direction_im = data_direction_im.reset_index().merge(prop_im, on='country')
+
+# Combine all
+
+data_direction = {'Total':data_direction, 'Imports':data_direction_im}
 
 ###################
 ## Plot together ##
@@ -151,121 +185,36 @@ change_im = change_im.set_index('country').join(prop_im[['percentage_imported', 
 
 fs = 16
 
-country_dict = {'United Kingdom':'UK', 'South Korea':'S. Korea', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
-for item in change['country'].unique():
-    if item not in list(country_dict.keys()):
-        country_dict[item] = item
-        
-data_dict = {'oecd, figaro':'ICIO, Figaro', 'oecd, exio':'Exiobase, ICIO', 'oecd, gloria':'ICIO, Gloria', 
-             'figaro, exio':'Exiobase, Figaro', 'figaro, gloria':'Figaro, Gloria', 'exio, gloria':'Exiobase, Gloria'}
+corr = {}
+for item in ['Total', 'Imports']:
+    
+    data_direction[item]['Dataset'] = data_direction[item]['dataset'] 
+    data_direction[item] = data_direction[item].sort_values('Dataset')
+    sns.lmplot(data=data_direction[item], hue='Dataset', y='pct_same', x='prop_imported', ci=None, size=7.5, legend=False)
+    #plt.ylim(0, 50); #plt.xlim(0, 100)
+    plt.ylabel('Similar direction (%)', fontsize=fs); 
+    plt.xlabel('Emissions imported (%)', fontsize=fs); 
+    plt.title(item, fontsize=fs); 
+    plt.tick_params(axis='x', labelsize=fs)
+    plt.tick_params(axis='y', labelsize=fs)
+    plt.legend(fontsize=fs)
+    plt.savefig(plot_filepath + 'lmplot_Direction_' + item + '_bydata.png', dpi=200, bbox_inches='tight')
+    plt.show()
+     
+    data_rmspe[item]['Dataset'] = data_rmspe[item]['dataset'] 
+    data_rmspe[item] = data_rmspe[item].sort_values('Dataset')
+    sns.lmplot(data=data_rmspe[item], hue='dataset', y='RMSPE', x='prop_imported', ci=None, size=7.5, legend=False)
+    #plt.ylim(0, 50); #plt.xlim(0, 100)
+    plt.ylabel('RMSPE (%)', fontsize=fs); 
+    plt.xlabel('Emissions imported (%)', fontsize=fs); 
+    plt.title(item, fontsize=fs); 
+    plt.tick_params(axis='x', labelsize=fs)
+    plt.tick_params(axis='y', labelsize=fs)
+    plt.legend(fontsize=fs)
+    plt.savefig(plot_filepath + 'lmplot_RMSPE_' + item + '_bydata.png', dpi=200, bbox_inches='tight')
+    plt.show()
+    
+    corr[item] = pd.DataFrame(data_direction[item].groupby(['dataset']).corr().swaplevel(axis=0).loc['pct_same', 'prop_imported']).join(
+        pd.DataFrame(pd.DataFrame(data_rmspe[item].groupby(['dataset']).corr().swaplevel(axis=0).loc['RMSPE', 'prop_imported'])),
+        lsuffix = '_direction', rsuffix = '_rmspe')
 
-change['dataset'] = change['dataset'].map(data_dict)
-change_im['dataset'] = change_im['dataset'].map(data_dict)
-
-# Plot with data on x
-fig, axs = plt.subplots(figsize=(15, 10), nrows=2, sharex=True)
-plot_data_im = change_im.groupby('country').describe()['RMSPE'][['mean', 'std']].join(prop_im)\
-    .reset_index().sort_values('percentage_imported')
-plot_data = change.groupby('country').describe()['RMSPE'][['mean', 'std']].join(prop_im)\
-    .loc[plot_data_im['country']].reset_index()
-plot_data['country'] = '                     ' + plot_data['country'].map(country_dict)
-plot_data_im['country'] = '                     ' + plot_data_im['country'].map(country_dict)
-sns.barplot(ax=axs[0], data=plot_data, y='mean', x='country', palette=plot_data['percentage_imported_c'], edgecolor='k')
-sns.barplot(ax=axs[1], data=plot_data_im, y='mean', x='country', palette=plot_data_im['percentage_imported_c'], edgecolor='k')
-
-axs[0].set_ylabel('Total footprint RMSPE (%)', fontsize=fs); 
-axs[1].set_ylabel('Imports RMSPE (%)', fontsize=fs); 
-
-axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
-axs[1].xaxis.set_ticks_position('top') # the rest is the same
-
-axs[0].set_ylim(0, 43); 
-axs[1].set_ylim(0, 260); 
-
-for i in range(2):
-    axs[i].set_xlabel(''); 
-    for j in range(len(axs[i].get_yticklabels())):
-        axs[i].axhline(axs[i].get_yticks()[j], c='k', linestyle=':')
-    axs[i].tick_params(axis='x', labelsize=fs, rotation=90)
-    axs[i].tick_params(axis='y', labelsize=fs)
-    fig.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0, 100), cmap=pal),
-                 ax=axs[i], orientation='vertical', label='Proportion of imported emissions (%)')
-
-fig.tight_layout()
-plt.savefig(plot_filepath + 'ALL_barplot_RMSPE_byimports.png', dpi=200, bbox_inches='tight')
-plt.show()
-
-
-corr = change
-
-# Plot with data on x
-fig, axs = plt.subplots(figsize=(15, 10), nrows=2, sharex=True)
-plot_data_im = change_im.groupby('country').describe()['RMSPE'][['mean', 'std']].join(prop_im)\
-    .reset_index().sort_values('percentage_imported')
-plot_data = change.groupby('country').describe()['RMSPE'][['mean', 'std']].join(prop_im)\
-    .loc[plot_data_im['country']].reset_index()
-plot_data['country'] = '                     ' + plot_data['country'].map(country_dict)
-plot_data_im['country'] = '                     ' + plot_data_im['country'].map(country_dict)
-sns.barplot(ax=axs[0], data=plot_data, y='mean', x='country', palette=plot_data['percentage_imported_c'], edgecolor='k')
-sns.barplot(ax=axs[1], data=plot_data_im, y='mean', x='country', palette=plot_data_im['percentage_imported_c'], edgecolor='k')
-
-axs[0].set_ylabel('Total footprint RMSPE (%)', fontsize=fs); 
-axs[1].set_ylabel('Imports RMSPE (%)', fontsize=fs); 
-
-axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
-axs[1].xaxis.set_ticks_position('top') # the rest is the same
-
-for i in range(2):
-    axs[i].set_ylim(0, 100); 
-    axs[i].set_xlabel(''); 
-    for j in range(len(axs[i].get_yticklabels())):
-        axs[i].axhline(axs[i].get_yticks()[j], c='k', linestyle=':')
-    axs[i].tick_params(axis='x', labelsize=fs, rotation=90)
-    axs[i].tick_params(axis='y', labelsize=fs)
-    fig.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0, 100), cmap=pal),
-                 ax=axs[i], orientation='vertical', label='Proportion of imported emissions (%)')
-
-fig.tight_layout()
-plt.savefig(plot_filepath + 'ALL_barplot_RMSPE_byimportsZOOM.png', dpi=200, bbox_inches='tight')
-plt.show()
-
-# Plot with data on x
-
-fig, axs = plt.subplots(figsize=(15, 10), nrows=2)
-sns.scatterplot(ax=axs[0], data=change, hue='dataset', y='RMSPE', x='percentage_imported')
-sns.scatterplot(ax=axs[1], data=change_im, hue='dataset', y='RMSPE', x='percentage_imported')
-
-axs[0].set_ylabel('Total footprint RMSPE (%)', fontsize=fs); 
-axs[1].set_ylabel('Imports RMSPE (%)', fontsize=fs); 
-
-for i in range(2):
-    axs[i].set_xlabel('Emissions imported (%)', fontsize=fs); 
-    axs[i].tick_params(axis='x', labelsize=fs)
-    axs[i].tick_params(axis='y', labelsize=fs)
-    axs[i].legend(fontsize=fs)
-
-fig.tight_layout()
-plt.savefig(plot_filepath + 'ALL_scatterplot_RMSPE_byimports.png', dpi=200, bbox_inches='tight')
-plt.show()
-
-
-
-sns.lmplot(data=change, hue='dataset', y='RMSPE', x='percentage_imported', ci=None, size=7.5, legend=False)
-#plt.ylim(0, 100); plt.xlim(0, 100)
-plt.ylabel('Total footprint RMSPE (%)', fontsize=fs); 
-plt.xlabel('Emissions imported (%)', fontsize=fs); 
-plt.tick_params(axis='x', labelsize=fs)
-plt.tick_params(axis='y', labelsize=fs)
-plt.legend(fontsize=fs)
-plt.savefig(plot_filepath + 'ALL_lmplot_RMSPE_total_bydata.png', dpi=200, bbox_inches='tight')
-plt.show()
-
-sns.lmplot(data=change_im, hue='dataset', y='RMSPE', x='percentage_imported', ci=None, size=7.5, legend=False)
-#plt.ylim(0, 100); plt.xlim(0, 100)
-plt.ylabel('Imports RMSPE (%)', fontsize=fs); 
-plt.xlabel('Emissions imported (%)', fontsize=fs); 
-plt.tick_params(axis='x', labelsize=fs)
-plt.tick_params(axis='y', labelsize=fs)
-plt.legend(fontsize=fs)
-plt.savefig(plot_filepath + 'ALL_lmplot_RMSPE_imports_bydata.png', dpi=200, bbox_inches='tight')
-plt.show()

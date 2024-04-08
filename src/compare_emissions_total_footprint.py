@@ -78,6 +78,10 @@ for year in years:
     summary_im = summary_im.append(temp_all.reset_index())
 summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
 
+
+# get percentage imported
+prop_im = pd.DataFrame((summary_im/summary * 100).mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'Percentage CO2 imported'})
+
 # Get means
 
 mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
@@ -222,6 +226,58 @@ for data in ['Total', 'Imports']:
     plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean_co2[data], on='country')
     plot_data['Type'] = data
     results = results.append(plot_data.reset_index())
+    
+# with pct imported on x
+# Scatter
+for data in ['Total', 'Imports']:
+    plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset'])\
+        .set_index('country').join(prop_im).loc[order].reset_index()
+    
+    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
+
+    sns.scatterplot(ax=axs[0], data=plot_data, x='Percentage CO2 imported', y='RMSPE', hue='dataset', s=point_size*10, palette=pal); 
+    axs[0].set_xlabel('')
+    axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
+    axs[0].tick_params(axis='y', labelsize=fs)
+    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+    #axs[0].set_yscale('log')
+    
+    sns.scatterplot(ax=axs[1], data=plot_data, x='Percentage CO2 imported', y='pct_same', hue='dataset', s=point_size*10, palette=pal); 
+    axs[1].set_ylim(-5, 105)
+    axs[1].set_xlabel('Proportion of imported emissions (%)', fontsize=fs); 
+    axs[1].set_ylabel('Similarity direction (%)', fontsize=fs); 
+    axs[1].tick_params(axis='y', labelsize=fs)
+    axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.31), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
+    
+    axs[1].tick_params(axis='x', labelsize=fs)
+    
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'Scatterplot_similarity_byimports_' + data + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
+
+# LM
+for data in ['Total', 'Imports']:
+    plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset'])\
+        .set_index('country').join(prop_im).loc[order].reset_index()
+    
+    sns.lmplot(data=plot_data, x='Percentage CO2 imported', y='RMSPE', hue='dataset', palette=pal, ci=None); 
+    plt.ylabel('RMSPE (%)', fontsize=fs)
+    plt.xlabel('Proportion of imported emissions (%)', fontsize=fs); 
+    plt.tick_params(axis='y', labelsize=fs)
+    plt.tick_params(axis='x', labelsize=fs)
+    #axs[0].set_yscale('log')
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'LMplot_similarity_byimports_RMSPE_' + data + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
+    
+    sns.lmplot(data=plot_data, x='Percentage CO2 imported', y='pct_same', hue='dataset', palette=pal, ci=None); 
+    plt.ylabel('RMSPE (%)', fontsize=fs)
+    plt.xlabel('Proportion of imported emissions (%)', fontsize=fs); 
+    plt.tick_params(axis='y', labelsize=fs)
+    plt.tick_params(axis='x', labelsize=fs)
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'LMplot_similarity_byimports_DirSim_' + data + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
 
 # Plot with data on x
 
@@ -282,3 +338,11 @@ for c in range(len(plot_data['dataset'].unique())):
 fig.tight_layout()
 plt.savefig(plot_filepath + 'Stripplot_similarity_bydata.png', dpi=200, bbox_inches='tight')
 plt.show()
+
+
+aa = temp.set_index(['Type', 'country', 'dataset', 'mean_co2']).drop('index', axis=1).unstack(['dataset'])\
+    .reset_index()
+    
+aa_total = aa.loc[aa['Type'] == 'Total'].sort_values('mean_co2', ascending=False)
+
+aa_total = aa.loc[aa['Type'] == 'Imports'].sort_values('mean_co2', ascending=False)

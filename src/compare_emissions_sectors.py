@@ -109,6 +109,8 @@ for year in years:
     summary_im = summary_im.append(temp_all.reset_index())
 summary_im = summary_im.rename(columns={'level_0':'country', 'level_1':'sector'}).set_index(['country', 'year', 'sector']).rename(index=country_dict).rename(columns=data_dict)
 
+summary_all = {'Total':summary, 'Imports':summary_im}
+
 # Get means
 
 mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level=['sector', 'country']).mean(axis=1)).rename(columns={0:'mean_co2'}), 
@@ -121,131 +123,101 @@ for data in ['Total', 'Imports']:
     mean_co2_sector[data]['pct_co2'] = mean_co2_sector[data]['mean_co2'] / mean_co2_sector[data]['mean_co2'].sum() * 100
     mean_co2_sector[data]['pct_co2_cumu'] = mean_co2_sector[data]['pct_co2'].cumsum()
 
+
+temp = mean_co2_sector['Total'].join(mean_co2_sector['Imports'], rsuffix='_import')
+
 ##############
 # Start Loop #
 ##############
 
-sectors = mean_co2_sector['Total'].index.tolist()
+sectors = {x:mean_co2_sector[x].index.tolist() for x in ['Total', 'Imports']}
 
 results = pd.DataFrame()
+top_sectors = {}; data_rmspe = {}; data_direction = {}
 
-top_sectors = sectors[:10]
-
-for sector in top_sectors:
-    
-    #############################
-    ## Change in trend - RMSPE ##
-    #############################
-    
-    # Total
-    temp = summary.unstack('country').swaplevel(axis=1).swaplevel(axis=0).loc[sector]
-    data_rmspe = pd.DataFrame(columns=['country'])
-    # Convert to True vs False
-    for c in temp.columns.levels[0]:
-        temp2 = temp[c]
-        for comb in data_comb:
-            d0 = comb.split(', ')[0]
-            d1 = comb.split(', ')[1]
-            temp3 = pd.DataFrame(index=[0])
-            temp3['country'] = c
-            temp3[comb] = (calc_rmspe(temp2[d0], temp2[d1]) + calc_rmspe(temp2[d1], temp2[d0]))/2
-            temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
-            data_rmspe = data_rmspe.append(temp3)
-    data_rmspe = data_rmspe.merge(data_rmspe.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values(['mean', 'dataset'])
-    
-    # Imports
-    temp = summary_im.unstack('country').swaplevel(axis=1).swaplevel(axis=0).loc[sector]
-    data_rmspe_im = pd.DataFrame(columns=['country'])
-    # Convert to True vs False
-    for c in temp.columns.levels[0]:
-        temp2 = temp[c]
-        for comb in data_comb:
-            d0 = comb.split(', ')[0]
-            d1 = comb.split(', ')[1]
-            temp3 = pd.DataFrame(index=[0])
-            temp3['country'] = c
-            temp3[comb] = (calc_rmspe(temp2[d0], temp2[d1]) + calc_rmspe(temp2[d1], temp2[d0]))/2
-            temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
-            data_rmspe_im = data_rmspe_im.append(temp3)
-    data_rmspe_im = data_rmspe_im.merge(data_rmspe_im.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country')
-    
-    # Combine all
-    data_rmspe = {'Total':data_rmspe, 'Imports':data_rmspe_im}
-    
-    #################################
-    ## Change in trend - Direction ##
-    #################################
-    
-    # Total
-    temp = summary.unstack('year').swaplevel(axis=1).swaplevel(axis=0).loc[sector].stack(level=1).fillna(0)
-    data_direction = temp[years[1:]]
-    for year in years[1:]:
-        data_direction[year] = temp[year] / temp[year - 1]
-    data_direction = data_direction.unstack(level=1).stack(level=0)
-    # Convert to True vs False
-    for comb in data_comb:
-        d0 = comb.split(', ')[0]
-        d1 = comb.split(', ')[1]
-        data_direction[comb] = False
-        data_direction.loc[((data_direction[d0]>1) & (data_direction[d1]>1) | (data_direction[d0]<1) & (data_direction[d1]<1) | 
-                            (data_direction[d0]==1) & (data_direction[d1]==1)), comb] = True
-    data_direction = data_direction[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
-    data_direction['count'] = 1
-    data_direction = data_direction.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
-        .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
-    data_direction['pct_same'] = data_direction[True] / (data_direction[True] + data_direction[False])*100
-    
-    # Imports
-    temp = summary_im.unstack('year').swaplevel(axis=1).swaplevel(axis=0).loc[sector].stack(level=1).fillna(0)
-    data_direction_im = temp[years[1:]]
-    for year in years[1:]:
-        data_direction_im[year] = temp[year] / temp[year - 1]
-    data_direction_im = data_direction_im.unstack(level=1).stack(level=0)
-    # Convert to True vs False
-    for comb in data_comb:
-        d0 = comb.split(', ')[0]
-        d1 = comb.split(', ')[1]
-        data_direction_im[comb] = False
-        data_direction_im.loc[((data_direction_im[d0]>1) & (data_direction_im[d1]>1) | (data_direction_im[d0]<1) & (data_direction_im[d1]<1) | 
-                               (data_direction_im[d0]==1) & (data_direction_im[d1]==1)), comb] = True
-    data_direction_im = data_direction_im[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
-    data_direction_im['count'] = 1
-    data_direction_im = data_direction_im.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
-        .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
-    data_direction_im['pct_same'] = data_direction_im[True] / (data_direction_im[True] + data_direction_im[False])*100
-    
-    # Combine all
-    data_direction = {'Total':data_direction, 'Imports':data_direction_im}
-    
-    ###################
-    ## Plot together ##
-    ###################
-
-    # sort countries by mean_co2
-    order = mean_co2['Total'].loc[sector].sort_values('mean_co2', ascending=False).index.tolist()
-    
-    # Stripplots
-    fs = 16
-    pal = 'tab10'
-    c_box = '#000000'
-    c_vlines = '#B9B9B9'
-    point_size = 9
-    
-    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
-    for i in range(2):
-        data = ['Total', 'Imports'][i]
+for data in ['Total', 'Imports']:
+    top_sectors[data] = sectors[data][:10]
+    for sector in sectors[data]:
         
+        #############################
+        ## Change in trend - RMSPE ##
+        #############################
+        
+        # Total
+        temp = summary_all[data].unstack('country').swaplevel(axis=1).swaplevel(axis=0).loc[sector]
+        data_rmspe_temp = pd.DataFrame(columns=['country'])
+        # Convert to True vs False
+        for c in temp.columns.levels[0]:
+            temp2 = temp[c]
+            for comb in data_comb:
+                d0 = comb.split(', ')[0]
+                d1 = comb.split(', ')[1]
+                temp3 = pd.DataFrame(index=[0])
+                temp3['country'] = c
+                temp3[comb] = (calc_rmspe(temp2[d0], temp2[d1]) + calc_rmspe(temp2[d1], temp2[d0]))/2
+                temp3 = temp3.set_index('country').stack().reset_index().rename(columns={'level_1':'dataset', 0:'RMSPE'})
+                data_rmspe_temp = data_rmspe_temp.append(temp3)
+        data_rmspe_temp = data_rmspe_temp.merge(data_rmspe_temp.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values(['mean', 'dataset'])
+       
+        data_rmspe[data] = data_rmspe_temp
+        
+        #################################
+        ## Change in trend - Direction ##
+        #################################
+        
+        # Total
+        temp = summary.fillna(0).unstack('year').swaplevel(axis=1).swaplevel(axis=0).loc[sector].stack(level=1)
+        data_direction_temp = temp[years[1:]]
+        for year in years[1:]:
+            data_direction_temp[year] = temp[year] / temp[year - 1]
+        data_direction_temp = data_direction_temp.unstack(level=1).stack(level=0)
+        # Convert to True vs False
+        for comb in data_comb:
+            d0 = comb.split(', ')[0]
+            d1 = comb.split(', ')[1]
+            data_direction_temp[comb] = False
+            data_direction_temp.loc[((data_direction_temp[d0]>1) & (data_direction_temp[d1]>1) | (data_direction_temp[d0]<1) & (data_direction_temp[d1]<1) | 
+                                (data_direction_temp[d0]==1) & (data_direction_temp[d1]==1)), comb] = True
+        data_direction_temp = data_direction_temp[data_comb].stack().reset_index().rename(columns={'level_2':'dataset', 0:'Same_direction'})
+        data_direction_temp['count'] = 1
+        data_direction_temp = data_direction_temp.set_index(['country', 'year', 'dataset', 'Same_direction']).unstack('Same_direction')\
+            .droplevel(axis=1, level=0).fillna(0).sum(axis=0, level=[0, 2])
+        data_direction_temp['pct_same'] = data_direction_temp[True] / (data_direction_temp[True] + data_direction_temp[False])*100
+        
+        # Combine all
+        data_direction[data] = data_direction_temp
+        
+        
+        # save as results
         mean = mean_co2[data].loc[sector]
         
-        plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset'])\
-            .set_index('country').loc[order].reset_index()
+        plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset'])
         plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean, on='country')
         plot_data['Country'] = '                     ' + plot_data['country']
         
         plot_data['Type'] = data
         plot_data['Sector'] = sector
         results = results.append(plot_data.reset_index())
-        
+
+
+###################
+## Plot together ##
+###################
+
+fs = 16
+pal = 'tab10'
+c_box = '#000000'
+c_vlines = '#B9B9B9'
+point_size = 9
+
+# Stripplots
+for sector in top_sectors['Total']:      
+    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
+    order = results.loc[(results['Type'] == 'Total') & (results['Sector'] == sector)].sort_values('mean_co2', ascending=False)['country'].unique()
+    for i in range(2):
+        data = ['Total', 'Imports'][i]
+        plot_data = results.loc[(results['Type'] == data) & (results['Sector'] == sector)].sort_values('dataset').set_index('country').loc[order].reset_index()
+       
         sns.stripplot(ax=axs[i], data=plot_data, x='Country', y='RMSPE', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
         axs[i].set_xlabel('')
         axs[i].tick_params(axis='y', labelsize=fs)
@@ -279,7 +251,7 @@ for sector in top_sectors:
     plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + sector + '.png', dpi=200, bbox_inches='tight')
     plt.show()
 
-    
+
 # plot with data on the x 
 
 # RMSPE
@@ -288,9 +260,9 @@ fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 for i in range(2):
     data = ['Total', 'Imports'][i]
     
-    temp = results.loc[results['Type'] == data].set_index('Sector').loc[top_sectors]
+    temp = results.loc[results['Type'] == data].set_index('Sector').loc[top_sectors[data]]
     temp2 = temp.groupby(['Sector', 'country']).mean().sum(axis=0, level='Sector')[['mean_co2']]\
-        .loc[top_sectors].rename(index=sector_dict).reset_index()
+        .loc[top_sectors[data]].rename(index=sector_dict).reset_index()
     
     temp = temp.rename(index=sector_dict).reset_index()
     temp['Sector'] = temp['Sector'] + '\n\n'
@@ -379,6 +351,9 @@ plt.show()
 
 
 for data in ['Total', 'Imports']:
+    
+    top_sectors = sectors[data][:10]
+    
     fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
         
     temp = results.loc[results['Type'] == data].set_index('Sector').loc[top_sectors]
@@ -444,4 +419,18 @@ for data in ['Total', 'Imports']:
     fig.tight_layout()
     plt.savefig(plot_filepath + 'Boxplot_bysector_' + data + '.png', dpi=200, bbox_inches='tight')
     plt.show()
+
+####
+
+summary = cp.copy(results)
+summary.replace([np.inf, -np.inf], 0, inplace=True)
+summary = summary.groupby(['Type', 'Sector', 'dataset']).describe()[
+    [('pct_same', 'mean'), ('pct_same', 'std'), ('RMSPE', 'mean'), 
+     ('RMSPE', 'std'), ('mean_co2', 'mean'), ('mean_co2', 'std')]]
+summary = summary.unstack(level=2).drop([
+    ('mean_co2', 'mean', 'Exiobase, Gloria'), ('mean_co2', 'mean', 'Exiobase, ICIO'),
+    ('mean_co2', 'mean', 'Figaro, Gloria'), ('mean_co2', 'mean', 'ICIO, Figaro'),
+    ('mean_co2', 'mean', 'ICIO, Gloria'), ('mean_co2', 'std', 'Exiobase, Gloria'),
+    ('mean_co2', 'std', 'Exiobase, ICIO'), ('mean_co2', 'std', 'Figaro, Gloria'),
+    ('mean_co2', 'std', 'ICIO, Figaro'), ('mean_co2', 'std', 'ICIO, Gloria')], axis=1)
 
