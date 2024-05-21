@@ -35,6 +35,14 @@ data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figa
 
 data_comb = ['oecd, figaro', 'oecd, exio', 'oecd, gloria', 'figaro, exio', 'figaro, gloria', 'exio, gloria']
 
+# get openness of economy for ordering graphs
+openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
+openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
+
+country_order = openness['combined_name'].tolist()
+
+openness['country'] = country_order
+
 ###############
 ## Summarise ##
 ###############
@@ -87,7 +95,8 @@ mean_co2_im = summary_im.mean(axis=0, level='country')
 percent_im = pd.DataFrame((mean_co2_im / mean_co2 * 100).stack()).reset_index()
 percent_im.columns = ['country', 'dataset', 'pct_im']
 
-order = mean_co2.stack().mean(axis=0, level='country').sort_values(0, ascending=False).index.tolist()
+#order = mean_co2.stack().mean(axis=0, level='country').sort_values(0, ascending=False).index.tolist()
+order = country_order
 
 percent_im['Dataset'] = percent_im['dataset'].map(data_dict)
 percent_im = percent_im.sort_values('Dataset').set_index('country').loc[order].rename(index=country_dict).reset_index()
@@ -103,8 +112,8 @@ plot_data = plot_data.sort_values('Dataset').set_index('country').loc[order].ren
 
 
 ## Lineplots
-
-fig, ax1 = plt.subplots(nrows=1, figsize=(20, 5))
+'''
+fig, ax1 = plt.subplots(nrows=1, figsize=(20, 10))
 
 temp = cp.copy(plot_data)
 temp.loc[temp['Type'] == 'Imports', 'CO2'] = 0
@@ -134,21 +143,41 @@ for c in range(len(plot_data['country'].unique())):
 fig.tight_layout()
 plt.savefig(plot_filepath + 'Lineplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
 plt.show()
+'''
 
 
-## LM plot
 
-temp = temp.merge(percent_im, on=['country', 'dataset', 'Dataset'])
+## Scatterplot
+ms = 200
 
-sns.lmplot(data=temp, x='pct_im', y='CO2', hue='Dataset', ci=None)
-plt.ylim(0, 3000000)
-#plt.yscale('log')
-plt.xlabel('Total Emissions (CO2)'); 
-plt.ylabel('Emisions imported (%)'); 
+fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 
-plt.savefig(plot_filepath + 'lmplot_total_vs_imports.png', dpi=200, bbox_inches='tight')
+temp = cp.copy(plot_data)
+temp.loc[temp['Type'] == 'Imports', 'CO2'] = 0
+temp['Linetype'] = temp['Type'].map({'Total':'Total emissions', 'Imports':'Proportion imported (%)'})
+temp = temp.loc[(temp['Type'] == 'Total') | (temp['country'] == 'India')]
+temp['Country'] = '                     ' + temp['country']
+
+sns.scatterplot(ax=axs[0], data=temp, x='country', y='CO2', style='Dataset', s=ms, c=['#000000']*len(temp))
+axs[0].set_ylabel('Footprint (CO2)', fontsize=fs); 
+axs[0].set_yscale('log')
+
+sns.scatterplot(ax=axs[1], data=percent_im, y='pct_im', x='country', style='Dataset', s=ms, c=['#000000']*len(percent_im))
+axs[1].tick_params(axis='y', labelsize=fs)
+axs[1].set_ylabel('Emisions imported (%)', fontsize=fs); 
+
+axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(temp['Dataset'].unique()), markerscale=3)
+axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(temp['Dataset'].unique()), markerscale=3)
+
+for i in range(2):
+    axs[i].tick_params(axis='y', labelsize=fs)
+    axs[i].set_xlabel(' ')
+    for c in range(len(temp['country'].unique())-1):
+        axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+axs[1].set_xticklabels(temp['Country'].unique(), rotation=90, va='center', fontsize=fs); 
+axs[1].xaxis.set_ticks_position('top') # the rest is the same
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'scatterplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
 plt.show()
-
-
-temp2 = temp.groupby('Dataset').mean()
-

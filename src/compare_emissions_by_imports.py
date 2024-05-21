@@ -11,7 +11,6 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import copy as cp
 
 # set working directory
 # make different path depending on operating system
@@ -39,10 +38,8 @@ def calc_rmspe(x1, x2):
     error = np.sqrt(mean_sq)
     return(error)
 
-
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
-
 
 ###############
 ## Summarise ##
