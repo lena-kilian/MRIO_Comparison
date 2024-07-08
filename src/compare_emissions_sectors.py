@@ -32,10 +32,20 @@ years = list(co2_all[datasets[0]].keys())
 
 data_comb = ['ICIO, Figaro', 'Exiobase, ICIO', 'ICIO, Gloria', 'Exiobase, Figaro', 'Figaro, Gloria', 'Exiobase, Gloria']
 
+error = 'rmse_pct' # 'rmspe'
+
+
 def calc_rmspe(x1, x2):
     pct_diff = ((x1/x2) - 1) * 100
     pct_sq = pct_diff **2
     mean_sq = np.mean(pct_sq)
+    error = np.sqrt(mean_sq)
+    return(error)
+
+def calc_rmse(x1, x2):
+    diff = x1-x2
+    diff_sq = diff**2
+    mean_sq = np.mean(diff_sq)
     error = np.sqrt(mean_sq)
     return(error)
 
@@ -141,7 +151,7 @@ temp = mean_co2_sector['Total'].join(mean_co2_sector['Imports'], rsuffix='_impor
 sectors = {x:mean_co2_sector[x].index.tolist() for x in ['Total', 'Imports']}
 
 results = pd.DataFrame()
-top_sectors = {}; data_rmspe = {}; data_direction = {}
+top_sectors = {}; data_rmspe = {}; data_direction = {}; data_rmse_pct = {}; data_error = {}
 
 for data in ['Total', 'Imports']:
     top_sectors[data] = sectors[data][:10]
@@ -151,7 +161,6 @@ for data in ['Total', 'Imports']:
         ## Change in trend - RMSPE ##
         #############################
         
-        # Total
         temp = summary_all[data].unstack('country').swaplevel(axis=1).swaplevel(axis=0).loc[sector]
         data_rmspe_temp = pd.DataFrame(columns=['country'])
         # Convert to True vs False
@@ -168,6 +177,32 @@ for data in ['Total', 'Imports']:
         data_rmspe_temp = data_rmspe_temp.merge(data_rmspe_temp.groupby('country').mean().reset_index().rename(columns={'RMSPE':'mean'}), on='country').sort_values(['mean', 'dataset'])
        
         data_rmspe[data] = data_rmspe_temp
+        
+        ###################################
+        ## Change in trend - RMSE / Mean ##
+        ###################################
+        
+        temp = summary_all[data].unstack('country').swaplevel(axis=1).swaplevel(axis=0).loc[sector]
+        data_rmse = pd.DataFrame(columns=['country'])
+        # Convert to True vs False
+        for c in temp.columns.levels[0]:
+            temp2 = temp[c]
+            for comb in data_comb:
+                d0 = comb.split(', ')[0]
+                d1 = comb.split(', ')[1]
+                temp3 = pd.DataFrame(index=[0])
+                temp3['country'] = c
+                temp3['RMSE'] = calc_rmse(temp2[d0], temp2[d1])
+                temp3['mean_GHG'] = temp2[[d0, d1]].mean().mean()
+                temp3['dataset'] = comb
+                data_rmse = data_rmse.append(temp3)
+
+        data_rmse['RMSE_PCT'] = data_rmse['RMSE'] / data_rmse['mean_GHG'] * 100        
+       
+        data_rmse_pct[data] = data_rmse
+        
+        ### Define error used
+        data_error[data] = eval('data_' + error + '[data]')
         
         #################################
         ## Change in trend - Direction ##
@@ -199,8 +234,8 @@ for data in ['Total', 'Imports']:
         # save as results
         mean = mean_co2[data].loc[sector]
         
-        plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset'])
-        plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean, on='country')
+        plot_data = data_direction[data].reset_index().merge(data_error[data], on =['country', 'dataset'])
+        plot_data = plot_data[['country', 'dataset', 'pct_same', error.upper()]].merge(mean, on='country')
         plot_data['Country'] = '                     ' + plot_data['country']
         
         plot_data['Type'] = data
@@ -218,51 +253,59 @@ c_box = '#000000'
 c_vlines = '#B9B9B9'
 point_size = 9
 
-# Stripplots
-for sector in top_sectors['Total'][:3]:      
-    fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
-    order = results.loc[(results['Type'] == 'Total') & (results['Sector'] == sector)].sort_values('mean_co2', ascending=False)['country'].unique()
-    for i in range(2):
-        data = ['Total', 'Imports'][i]
-        plot_data = results.loc[(results['Type'] == data) & (results['Sector'] == sector)].sort_values('dataset').set_index('country').loc[order].reset_index()
-       
-        sns.stripplot(ax=axs[i], data=plot_data, x='Country', y='RMSPE', hue='dataset', s=point_size, jitter=0.4, palette=pal); 
-        axs[i].set_xlabel('')
-        axs[i].tick_params(axis='y', labelsize=fs)
-        axs[i].set_yscale('log')
-        axs[i].set_ylim(0, 10**5)
-        
-        if data == 'Total':
-            ax_twin0 = axs[i].twinx()
-            sns.lineplot(ax=ax_twin0, data=plot_data[['country', 'mean_co2']].drop_duplicates(), y='mean_co2', x='country', color='k')
-            ax_twin0.tick_params(axis='y', labelsize=fs)
-            ax_twin0.set_ylabel('Total emissions (CO2)', fontsize=fs); 
-        else:
-            ax_twin1 = axs[i].twinx()
-            sns.lineplot(ax=ax_twin1, data=plot_data[['country', 'mean_co2']].drop_duplicates(), y='mean_co2', x='country', color='k')
-            ax_twin1.tick_params(axis='y', labelsize=fs)
-            ax_twin1.set_ylabel('Imported emissions (CO2)', fontsize=fs); 
-        
-    axs[0].set_ylabel('Total emissions RMSPE (%)', fontsize=fs)
-    axs[1].set_ylabel('Imported emissions RMSPE (%)', fontsize=fs)
-    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-    axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
-    
-    axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
-    axs[1].xaxis.set_ticks_position('top') # the rest is the same
-
-    for c in range(len(plot_data['country'].unique())-1):
-        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
-        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
-    
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'Stripplot_similarity_bycountry_' + sector + '.png', dpi=200, bbox_inches='tight')
-    plt.show()
-
-
 # plot with sector on the x 
 
 # Boxplot
+
+# by sector
+data_order = ['Exiobase, Figaro', 'Exiobase, Gloria', 'Exiobase, ICIO', 'Figaro, Gloria',  'ICIO, Figaro', 'ICIO, Gloria',]
+type_order = ['Total', 'Imports']
+
+for sector in results['Sector'].unique():
+    
+    temp = results.set_index('Sector').loc[sector]
+    temp['dataset'] = pd.Categorical(temp['dataset'], categories=data_order, ordered=True)
+    temp['Type'] = pd.Categorical(temp['Type'], categories=type_order, ordered=True)
+    
+    temp2 = temp.groupby(['Sector', 'dataset', 'Type']).sum()[['mean_co2']].rename(index=sector_dict).reset_index()
+    
+    temp = temp.rename(index=sector_dict).reset_index()
+    temp['Sector'] = temp['Sector'] + '\n\n'
+    
+    fig, axs = plt.subplots(ncols=3, figsize=(10, 3), sharex=True)
+    
+    # Mean
+    sns.barplot(ax=axs[0], data=temp2, y='mean_co2', x='dataset', hue='Type')
+    axs[0].set_yscale('log')
+    
+    
+    # RMSPE
+    sns.boxplot(ax=axs[1], data=temp, y=error.upper(), x='dataset', hue='Type', showfliers=False)
+    #axs[0].set_xlabel('')
+    #axs[0].tick_params(axis='y', labelsize=fs)
+    #axs[0].set_yscale('log')
+    #axs[0].set_ylim(0, 10**5)
+    
+    
+    # RMSPE
+    sns.boxplot(ax=axs[2], data=temp, y='pct_same', x='dataset', hue='Type', showfliers=False)
+    #axs[0].set_xlabel('')
+    #axs[0].tick_params(axis='y', labelsize=fs)
+    #axs[0].set_yscale('log')
+    #axs[0].set_ylim(0, 10**5)
+    
+    for c in range(len(temp['dataset'].unique())):
+        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
+        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
+        axs[2].axvline(c+0.5, c=c_vlines, linestyle=':')
+        
+    axs[1].set_title(sector)
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
+
+
+# all together
 
 for data in ['Total', 'Imports']:
     
@@ -279,14 +322,14 @@ for data in ['Total', 'Imports']:
     
     # Boxplot
     # RMSPE
-    sns.boxplot(ax=axs[0], data=temp, hue='dataset', y='RMSPE', x='Sector', showfliers=True)
+    sns.boxplot(ax=axs[0], data=temp, hue='dataset', palette='Greys', y=error.upper(), x='Sector', showfliers=True)
     axs[0].set_xlabel('')
     axs[0].tick_params(axis='y', labelsize=fs)
     axs[0].set_yscale('log')
     axs[0].set_ylim(0, 10**5)
     
     ax_twin = axs[0].twinx()
-    sns.lineplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k')
+    sns.scatterplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k', marker = 'x', s=200)
     ax_twin.tick_params(axis='y', labelsize=fs)
     
     if data == 'Total':
@@ -303,13 +346,13 @@ for data in ['Total', 'Imports']:
     temp['Sector'] = temp['Sector'] + '\n\n'
     
     
-    sns.boxplot(ax=axs[1], data=temp, hue='dataset', y='pct_same', x='Sector', showfliers=True)
+    sns.boxplot(ax=axs[1], data=temp, hue='dataset', palette='Greys', y='pct_same', x='Sector', showfliers=True)
     axs[1].set_xlabel('')
     axs[1].tick_params(axis='y', labelsize=fs)
     axs[1].set_ylim(-5, 105)
     
     ax_twin = axs[1].twinx()
-    sns.lineplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k')
+    sns.scatterplot(ax=ax_twin, data=temp2, y='mean_co2', x='Sector', color='k', marker = 'x', s=200)
     ax_twin.tick_params(axis='y', labelsize=fs)
     
     if data == 'Total':
@@ -319,7 +362,7 @@ for data in ['Total', 'Imports']:
         
     # Labels
     
-    axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
+    axs[0].set_ylabel(error.upper() + ' (%)', fontsize=fs)
     axs[1].set_ylabel('Similarity direction (%)', fontsize=fs)
     axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=6)
     axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=6)
@@ -339,8 +382,8 @@ for data in ['Total', 'Imports']:
 summary = cp.copy(results)
 summary.replace([np.inf, -np.inf], 0, inplace=True)
 summary = summary.groupby(['Type', 'Sector', 'dataset']).describe()[
-    [('pct_same', 'mean'), ('pct_same', 'std'), ('RMSPE', 'mean'), 
-     ('RMSPE', 'std'), ('mean_co2', 'mean'), ('mean_co2', 'std')]]
+    [('pct_same', 'mean'), ('pct_same', 'std'), (error.upper(), 'mean'), 
+     (error.upper(), 'std'), ('mean_co2', 'mean'), ('mean_co2', 'std')]]
 summary = summary.unstack(level=2).drop([
     ('mean_co2', 'mean', 'Exiobase, Gloria'), ('mean_co2', 'mean', 'Exiobase, ICIO'),
     ('mean_co2', 'mean', 'Figaro, Gloria'), ('mean_co2', 'mean', 'ICIO, Figaro'),

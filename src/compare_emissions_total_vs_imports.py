@@ -223,7 +223,6 @@ plt.show()
 
 # pointplot
 
-
 ms = 200
 
 fig, axs = plt.subplots(nrows=2, figsize=(25, 10), sharex=True)
@@ -234,11 +233,23 @@ temp['Linetype'] = temp['Type'].map({'Total':'Total emissions', 'Imports':'Propo
 temp = temp.loc[(temp['Type'] == 'Total')]
 temp['Country'] = '                     ' + temp['country']
 
-sns.pointplot(ax=axs[0], data=temp, x='country', y='CO2', color='#000000', linestyles="", errorbar='sd')
+temp2 = temp.groupby(['country', 'Country']).describe().stack(level=1).loc[temp['country'].unique()].reset_index()
+temp2 = temp2.loc[temp2['level_2'].isin(['min', 'max']) == True]
+
+
+sns.pointplot(ax=axs[0], data=temp, x='Country', y='CO2', color='#000000', linestyles="", errorbar='sd')
+sns.scatterplot(ax=axs[0], data=temp2, x='Country', y='CO2', color='#000000', s=150, marker='_')
 axs[0].set_ylabel('Footprint (CO2)', fontsize=fs); 
 axs[0].set_yscale('log')
 
-sns.pointplot(ax=axs[1], data=percent_im, x='country', y='pct_im', color='#000000', linestyles="", errorbar='sd')
+temp = cp.copy(percent_im)
+temp['Country'] = '                     ' + temp['country']
+
+temp2 = temp.groupby(['country', 'Country']).describe().stack(level=1).loc[temp['country'].unique()].reset_index()
+temp2 = temp2.loc[temp2['level_2'].isin(['min', 'max']) == True]
+
+sns.pointplot(ax=axs[1], data=temp, x='Country', y='pct_im', color='#000000', linestyles="", errorbar='sd')
+sns.scatterplot(ax=axs[1], data=temp2, x='Country', y='pct_im', color='#000000', s=150, marker='_')
 axs[1].tick_params(axis='y', labelsize=fs)
 axs[1].set_ylabel('Emisions imported (%)', fontsize=fs); 
 
@@ -248,7 +259,7 @@ for i in range(2):
     for c in range(len(temp['country'].unique())-1):
         axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
     
-axs[1].set_xticklabels(temp['Country'].unique(), rotation=90, va='center', fontsize=fs); 
+axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fontsize=fs); 
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 fig.tight_layout()
