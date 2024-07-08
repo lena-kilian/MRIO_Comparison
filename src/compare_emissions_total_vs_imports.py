@@ -181,3 +181,77 @@ axs[1].xaxis.set_ticks_position('top') # the rest is the same
 fig.tight_layout()
 plt.savefig(plot_filepath + 'scatterplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
 plt.show()
+
+
+## barplot
+ms = 200
+
+fig, axs = plt.subplots(nrows=2, figsize=(25, 10), sharex=True)
+
+temp = cp.copy(plot_data)
+temp.loc[temp['Type'] == 'Imports', 'CO2'] = 0
+temp['Linetype'] = temp['Type'].map({'Total':'Total emissions', 'Imports':'Proportion imported (%)'})
+temp = temp.loc[(temp['Type'] == 'Total')]
+temp['Country'] = '                     ' + temp['country']
+
+sns.barplot(ax=axs[0], data=temp, x='country', y='CO2', hue='Dataset')
+axs[0].set_ylabel('Footprint (CO2)', fontsize=fs); 
+axs[0].set_yscale('log')
+
+sns.barplot(ax=axs[1], data=percent_im, y='pct_im', x='country', hue='Dataset')
+axs[1].tick_params(axis='y', labelsize=fs)
+axs[1].set_ylabel('Emisions imported (%)', fontsize=fs); 
+
+axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(temp['Dataset'].unique()), markerscale=3)
+axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(temp['Dataset'].unique()), markerscale=3)
+
+for i in range(2):
+    axs[i].tick_params(axis='y', labelsize=fs)
+    axs[i].set_xlabel(' ')
+    for c in range(len(temp['country'].unique())-1):
+        axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+axs[1].set_xticklabels(temp['Country'].unique(), rotation=90, va='center', fontsize=fs); 
+axs[1].xaxis.set_ticks_position('top') # the rest is the same
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'barplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
+
+
+# pointplot
+
+
+ms = 200
+
+fig, axs = plt.subplots(nrows=2, figsize=(25, 10), sharex=True)
+
+temp = cp.copy(plot_data)
+temp.loc[temp['Type'] == 'Imports', 'CO2'] = 0
+temp['Linetype'] = temp['Type'].map({'Total':'Total emissions', 'Imports':'Proportion imported (%)'})
+temp = temp.loc[(temp['Type'] == 'Total')]
+temp['Country'] = '                     ' + temp['country']
+
+sns.pointplot(ax=axs[0], data=temp, x='country', y='CO2', color='#000000', linestyles="", errorbar='sd')
+axs[0].set_ylabel('Footprint (CO2)', fontsize=fs); 
+axs[0].set_yscale('log')
+
+sns.pointplot(ax=axs[1], data=percent_im, x='country', y='pct_im', color='#000000', linestyles="", errorbar='sd')
+axs[1].tick_params(axis='y', labelsize=fs)
+axs[1].set_ylabel('Emisions imported (%)', fontsize=fs); 
+
+for i in range(2):
+    axs[i].tick_params(axis='y', labelsize=fs)
+    axs[i].set_xlabel(' ')
+    for c in range(len(temp['country'].unique())-1):
+        axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+axs[1].set_xticklabels(temp['Country'].unique(), rotation=90, va='center', fontsize=fs); 
+axs[1].xaxis.set_ticks_position('top') # the rest is the same
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'pointplot_overview_bycountry.png', dpi=200, bbox_inches='tight')
+plt.show()
+

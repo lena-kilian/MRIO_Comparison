@@ -40,6 +40,14 @@ def calc_rmspe(x1, x2):
     return(error)
 
 
+def calc_rmse(x1, x2):
+    diff = x1-x2
+    diff_sq = diff**2
+    mean_sq = np.mean(diff_sq)
+    error = np.sqrt(mean_sq)
+    return(error)
+
+
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
 
@@ -140,6 +148,71 @@ data_rmspe_im = data_rmspe_im.merge(data_rmspe_im.groupby('country').mean().rese
 # Combine all
 
 data_rmspe = {'Total':data_rmspe, 'Imports':data_rmspe_im}
+
+
+###################################
+## Change in trend - RMSE / Mean ##
+###################################
+
+# Total
+
+temp = summary.unstack('country').swaplevel(axis=1)
+data_rmse = pd.DataFrame(columns=['country'])
+# Convert to True vs False
+for c in temp.columns.levels[0]:
+    temp2 = temp[c]
+    for comb in data_comb:
+        d0 = comb.split(', ')[0]
+        d1 = comb.split(', ')[1]
+        temp3 = pd.DataFrame(index=[0])
+        temp3['country'] = c
+        temp3['rmse'] = calc_rmse(temp2[d0], temp2[d1])
+        temp3['mean_GHG'] = temp2[[d0, d1]].mean().mean()
+        temp3['dataset'] = comb
+        data_rmse = data_rmse.append(temp3)
+        
+        print(c, comb)
+       
+data_rmse = data_rmse.merge(data_rmse.groupby('country').mean().reset_index().rename(columns={'rmse':'mean', 'mean_GHG':'country_GHG'}), on='country').sort_values(['mean', 'dataset'])
+
+# Imports
+
+temp = summary_im.unstack('country').swaplevel(axis=1)
+data_rmse_im = pd.DataFrame(columns=['country'])
+# Convert to True vs False
+for c in temp.columns.levels[0]:
+    temp2 = temp[c]
+    for comb in data_comb:
+        d0 = comb.split(', ')[0]
+        d1 = comb.split(', ')[1]
+        temp3 = pd.DataFrame(index=[0])
+        temp3['country'] = c
+        temp3['rmse'] = calc_rmse(temp2[d0], temp2[d1])
+        temp3['mean_GHG'] = temp2[[d0, d1]].mean().mean()
+        temp3['dataset'] = comb
+        data_rmse_im = data_rmse_im.append(temp3)
+        data_rmse_im = data_rmse_im.append(temp3)
+data_rmse_im = data_rmse_im.merge(data_rmse_im.groupby('country').mean().reset_index().rename(columns={'rmse':'mean', 'mean_GHG':'country_GHG'}), on='country')
+
+# Combine all
+
+data_rmse_dict = {'Total':data_rmse, 'Imports':data_rmse_im}
+data_rmse_dict['Total']['rmse_pct_mean'] = data_rmse_dict['Total']['rmse'] / data_rmse_dict['Total']['mean_GHG'] * 100
+data_rmse_dict['Imports']['rmse_pct_mean'] = data_rmse_dict['Imports']['rmse'] / data_rmse_dict['Imports']['mean_GHG'] * 100
+
+
+#####################################
+## Change in trend - RMSE vs RMSPE ##
+#####################################
+
+comp_total = data_rmse_dict['Total'].set_index(['country', 'dataset']).join(data_rmspe['Total'].drop_duplicates().set_index(['country', 'dataset']), lsuffix='_RMSE', rsuffix='_RMSPE')
+comp_imports = data_rmse_dict['Imports'].set_index(['country', 'dataset']).join(data_rmspe['Imports'].drop_duplicates().set_index(['country', 'dataset']), lsuffix='_RMSE', rsuffix='_RMSPE')
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+sns.scatterplot(data=comp_total, x='rmse_pct_mean', y='RMSPE'); plt.show()
+sns.scatterplot(data=comp_imports, x='rmse_pct_mean', y='RMSPE'); plt.show()
+
 
 #################################
 ## Change in trend - Direction ##
