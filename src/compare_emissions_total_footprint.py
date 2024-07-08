@@ -27,6 +27,8 @@ plot_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/plots/'
 
 co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'rb'))
 
+error = 'rmse_pct' # 'rmspe'
+
 datasets = list(co2_all.keys())
 years = list(co2_all[datasets[0]].keys())
 
@@ -166,14 +168,14 @@ for c in temp.columns.levels[0]:
         d1 = comb.split(', ')[1]
         temp3 = pd.DataFrame(index=[0])
         temp3['country'] = c
-        temp3['rmse'] = calc_rmse(temp2[d0], temp2[d1])
+        temp3['RMSE'] = calc_rmse(temp2[d0], temp2[d1])
         temp3['mean_GHG'] = temp2[[d0, d1]].mean().mean()
         temp3['dataset'] = comb
         data_rmse = data_rmse.append(temp3)
         
         print(c, comb)
        
-data_rmse = data_rmse.merge(data_rmse.groupby('country').mean().reset_index().rename(columns={'rmse':'mean', 'mean_GHG':'country_GHG'}), on='country').sort_values(['mean', 'dataset'])
+data_rmse = data_rmse.merge(data_rmse.groupby('country').mean().reset_index().rename(columns={'RMSE':'mean', 'mean_GHG':'country_GHG'}), on='country').sort_values(['mean', 'dataset'])
 
 # Imports
 
@@ -187,32 +189,38 @@ for c in temp.columns.levels[0]:
         d1 = comb.split(', ')[1]
         temp3 = pd.DataFrame(index=[0])
         temp3['country'] = c
-        temp3['rmse'] = calc_rmse(temp2[d0], temp2[d1])
+        temp3['RMSE'] = calc_rmse(temp2[d0], temp2[d1])
         temp3['mean_GHG'] = temp2[[d0, d1]].mean().mean()
         temp3['dataset'] = comb
         data_rmse_im = data_rmse_im.append(temp3)
         data_rmse_im = data_rmse_im.append(temp3)
-data_rmse_im = data_rmse_im.merge(data_rmse_im.groupby('country').mean().reset_index().rename(columns={'rmse':'mean', 'mean_GHG':'country_GHG'}), on='country')
+data_rmse_im = data_rmse_im.merge(data_rmse_im.groupby('country').mean().reset_index().rename(columns={'RMSE':'mean', 'mean_GHG':'country_GHG'}), on='country')
 
 # Combine all
 
-data_rmse_dict = {'Total':data_rmse, 'Imports':data_rmse_im}
-data_rmse_dict['Total']['rmse_pct_mean'] = data_rmse_dict['Total']['rmse'] / data_rmse_dict['Total']['mean_GHG'] * 100
-data_rmse_dict['Imports']['rmse_pct_mean'] = data_rmse_dict['Imports']['rmse'] / data_rmse_dict['Imports']['mean_GHG'] * 100
+data_rmse_pct = {'Total':data_rmse, 'Imports':data_rmse_im}
+data_rmse_pct['Total']['RMSE_PCT'] = data_rmse_pct['Total']['RMSE'] / data_rmse_pct['Total']['mean_GHG'] * 100
+data_rmse_pct['Imports']['RMSE_PCT'] = data_rmse_pct['Imports']['RMSE'] / data_rmse_pct['Imports']['mean_GHG'] * 100
 
 
 #####################################
 ## Change in trend - RMSE vs RMSPE ##
 #####################################
 
-comp_total = data_rmse_dict['Total'].set_index(['country', 'dataset']).join(data_rmspe['Total'].drop_duplicates().set_index(['country', 'dataset']), lsuffix='_RMSE', rsuffix='_RMSPE')
-comp_imports = data_rmse_dict['Imports'].set_index(['country', 'dataset']).join(data_rmspe['Imports'].drop_duplicates().set_index(['country', 'dataset']), lsuffix='_RMSE', rsuffix='_RMSPE')
+comp_total = data_rmse_pct['Total'].set_index(['country', 'dataset']).join(data_rmspe['Total'].drop_duplicates().set_index(['country', 'dataset']), lsuffix='_RMSE', rsuffix='_RMSPE')
+comp_imports = data_rmse_pct['Imports'].set_index(['country', 'dataset']).join(data_rmspe['Imports'].drop_duplicates().set_index(['country', 'dataset']), lsuffix='_RMSE', rsuffix='_RMSPE')
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-sns.scatterplot(data=comp_total, x='rmse_pct_mean', y='RMSPE'); plt.show()
-sns.scatterplot(data=comp_imports, x='rmse_pct_mean', y='RMSPE'); plt.show()
+sns.scatterplot(data=comp_total, x='RMSE_PCT', y='RMSPE'); plt.title('Total'); plt.axline((0, 0), slope=1, c='k'); plt.show()
+sns.scatterplot(data=comp_imports, x='RMSE_PCT', y='RMSPE'); plt.title('Imports'); plt.axline((0, 0), slope=1, c='k'); plt.show()
 
+temp = comp_total.set_index(['mean_GHG', 'country_GHG'], append=True)[['RMSE_PCT', 'RMSPE']].stack().reset_index().rename(columns={'level_4':'Error_Type', 0:'Error_pct'})
+sns.scatterplot(data=temp, x='mean_GHG', y='Error_pct', hue='Error_Type'); plt.title('Total'); plt.xscale('log'); plt.show()
+
+temp = comp_imports.set_index(['mean_GHG', 'country_GHG'], append=True)[['RMSE_PCT', 'RMSPE']].stack().reset_index().rename(columns={'level_4':'Error_Type', 0:'Error_pct'})
+sns.scatterplot(data=temp, x='mean_GHG', y='Error_pct', hue='Error_Type'); plt.title('Imports'); plt.xscale('log'); plt.show()
+
+
+data_error = eval('data_' + error)
 
 #################################
 ## Change in trend - Direction ##
@@ -279,18 +287,21 @@ point_size = 20
 
 results = pd.DataFrame()
 for data in ['Total', 'Imports']:
-    plot_data = data_direction[data].reset_index().merge(data_rmspe[data], on =['country', 'dataset']).set_index('country').loc[order].reset_index()
-    plot_data['Country'] = '                     ' + plot_data['country']
+    plot_data = data_direction[data].reset_index().merge(data_error[data], on =['country', 'dataset']).set_index('country').loc[order].reset_index()
+    plot_data['Country'] = '                      ' + plot_data['country']
+    temp = plot_data.groupby(['country', 'Country']).describe().stack(level=1).loc[order].reset_index()
+    temp = temp.loc[temp['level_2'].isin(['min', 'max']) == True]
     
     fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
 
-    sns.pointplot(ax=axs[0], data=plot_data, x='Country', y='RMSPE', color='#000000', linestyles="", errorbar='sd')
+    sns.scatterplot(ax=axs[0], data=temp, x='Country', y=error.upper(), color='#000000', s=150, marker='_')
+    sns.pointplot(ax=axs[0], data=plot_data, x='Country', y=error.upper(), color='#000000', linestyles="", errorbar='sd')
     axs[0].set_xlabel('')
-    axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
+    axs[0].set_ylabel(error.upper().replace('_PCT', '') + ' (%)', fontsize=fs)
     axs[0].tick_params(axis='y', labelsize=fs)
-    axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
     #axs[0].set_yscale('log')
     
+    sns.scatterplot(ax=axs[1], data=temp, x='Country', y='pct_same', color='#000000', s=150, marker='_')
     sns.pointplot(ax=axs[1], data=plot_data, x='Country', y='pct_same', color='#000000', linestyles="", errorbar='sd')
     axs[1].set_ylim(-5, 105)
     axs[1].set_xlabel('')
@@ -308,7 +319,7 @@ for data in ['Total', 'Imports']:
     plt.savefig(plot_filepath + 'Pointplot_similarity_bycountry_' + data + '.png', dpi=200, bbox_inches='tight')
     plt.show()
     
-    plot_data = plot_data[['country', 'dataset', 'pct_same', 'RMSPE']].merge(mean_co2[data], on='country')
+    plot_data = plot_data[['country', 'dataset', 'pct_same', error.upper()]].merge(mean_co2[data], on='country')
     plot_data['Type'] = data
     results = results.append(plot_data.reset_index())
 
@@ -320,9 +331,9 @@ temp['dataset'] = temp['dataset'] + '\n\n'
 
 # Boxplot
 fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
-sns.boxplot(ax=axs[0], data=temp, x='dataset', y='RMSPE', hue='Type', palette='Greys', showfliers=True)
+sns.boxplot(ax=axs[0], data=temp, x='dataset', y=error.upper(), hue='Type', palette='Greys', showfliers=True)
 axs[0].set_xlabel('')
-axs[0].set_ylabel('RMSPE (%)', fontsize=fs)
+axs[0].set_ylabel(error.upper().replace('_PCT', '') + ' (%)', fontsize=fs)
 axs[0].tick_params(axis='y', labelsize=fs)
 axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(plot_data['dataset'].unique()))
 
