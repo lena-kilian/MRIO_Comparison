@@ -144,6 +144,20 @@ for data in ['Total', 'Imports']:
 
 temp = mean_co2_sector['Total'].join(mean_co2_sector['Imports'], rsuffix='_import')
 
+################# 
+## Correlation ##
+################# 
+
+corr = pd.DataFrame()
+
+for data in ['Total', 'Imports']:
+    temp = summary_all[data].reset_index().drop('year', axis=1).groupby(['country', 'sector']).corr().stack().reset_index()
+    temp['dataset'] = temp['level_2'] + ', ' + temp['level_3']
+    temp = temp.loc[temp['dataset'].isin(data_comb) == True].drop(['level_2', 'level_3'], axis=1).rename(columns={0:'corr', 'sector':'Sector'})
+    temp['Type'] = data
+    corr = corr.append(temp)
+
+
 ##############
 # Start Loop #
 ##############
@@ -209,7 +223,7 @@ for data in ['Total', 'Imports']:
         #################################
         
         # Total
-        temp = summary.fillna(0).unstack('year').swaplevel(axis=1).swaplevel(axis=0).loc[sector].stack(level=1)
+        temp = summary_all[data].fillna(0).unstack('year').swaplevel(axis=1).swaplevel(axis=0).loc[sector].stack(level=1)
         data_direction_temp = temp[years[1:]]
         for year in years[1:]:
             data_direction_temp[year] = temp[year] / temp[year - 1]
@@ -243,6 +257,26 @@ for data in ['Total', 'Imports']:
         results = results.append(plot_data.reset_index())
 
 
+#### plot with corr
+
+results2 = results.merge(corr, on=['country', 'Sector', 'dataset', 'Type'])
+
+sns.scatterplot(data=results2, x='corr', y='RMSE_PCT', hue='dataset', size=1); plt.ylim(-1, 250); plt.show()
+
+sns.scatterplot(data=results2, x='corr', y='mean_co2', hue='dataset', size=1); plt.yscale('log'); plt.show()
+
+sns.boxplot(data=results2, x='corr', y='Sector'); plt.show()
+
+sns.boxplot(data=results2, x='corr', y='dataset', hue='Type'); plt.show()
+sns.barplot(data=results2, x='corr', y='dataset', hue='Type'); plt.show()
+sns.barplot(data=results2, y='corr', x='country', hue='Type'); plt.show()
+
+fig, ax = plt.subplots(figsize=(5, 20))
+sns.boxplot(ax=ax, data=results2, x='corr', y='Sector', hue='dataset'); plt.show()
+
+
+corr2 = corr.set_index(['country', 'Sector', 'dataset', 'Type']).unstack(['Type', 'dataset'])
+
 ###################
 ## Plot together ##
 ###################
@@ -255,13 +289,179 @@ point_size = 9
 
 # plot with sector on the x 
 
-# Boxplot
+summary_co2 = pd.DataFrame((summary_all['Total'].stack()))\
+    .join(pd.DataFrame((summary_all['Imports'].stack())), lsuffix='_T', rsuffix='_I')\
+       .stack().reset_index().rename(columns={'level_3':'dataset', 'level_4':'Type', 0:'ktCO2'})
+summary_co2['Type'] = summary_co2['Type'].map({'0_T':'Total', '0_I':'Imports'})
+sector_co2 = summary_co2.groupby(['sector', 'year', 'Type', 'dataset']).sum()
+
+summary_sector_co2 = sector_co2.reset_index().groupby(['sector', 'Type', 'dataset']).describe()['ktCO2'][['mean', 'std']]
+temp = []
+for i in range(len(summary_sector_co2)):
+    m = summary_sector_co2['mean'].round(2).astype(str)[i] 
+    sd = summary_sector_co2['std'].round(2).astype(str)[i]
+    
+    temp.append(m + '\n(' + sd + ')')
+    
+summary_sector_co2['summary'] = temp
+summary_sector_co2 = summary_sector_co2.drop('std', axis=1).unstack('dataset')
+summary_sector_co2[('all', 'mean')] = summary_sector_co2['mean'].mean(1)
+summary_sector_co2 = summary_sector_co2.unstack('Type')
+
+    
+
+########## 
+## Plot ##
+########## 
 
 # by sector
 data_order = ['Exiobase, Figaro', 'Exiobase, Gloria', 'Exiobase, ICIO', 'Figaro, Gloria',  'ICIO, Figaro', 'ICIO, Gloria',]
 type_order = ['Total', 'Imports']
 
-for sector in results['Sector'].unique():
+for sector in results['Sector'].unique()[:10]:
+    
+    temp = results.set_index('Sector').loc[sector]
+    temp['dataset'] = pd.Categorical(temp['dataset'], categories=data_order, ordered=True)
+    temp['Type'] = pd.Categorical(temp['Type'], categories=type_order, ordered=True)
+    
+    temp2 = sector_co2.loc[sector].reset_index()
+    temp2['dataset'] = pd.Categorical(temp2['dataset'], categories=['Exiobase', 'Figaro', 'Gloria', 'ICIO'], ordered=True)
+    temp2['Type'] = pd.Categorical(temp2['Type'], categories=type_order, ordered=True)
+    
+    temp = temp.rename(index=sector_dict).reset_index()
+    temp['Sector'] = temp['Sector'] + '\n\n'
+    
+    xticks = [x.replace(' ', '\n') for x in data_order]
+    
+    fig, axs = plt.subplots(ncols=3, figsize=(18, 5))
+    
+    # Mean
+    sns.barplot(ax=axs[0], data=temp2, y='ktCO2', x='dataset', hue='Type', palette='Greys', edgecolor='k', ci=68)
+    #axs[0].set_yscale('log')
+    axs[0].set_ylabel('Gobal Emissions (ktCO2)', fontsize=fs)
+    axs[0].set_xticklabels(temp2['dataset'].unique(), fontsize=fs, rotation=90); 
+    
+    
+    # Error
+    sns.boxplot(ax=axs[1], data=temp, y=error.upper(), x='dataset', hue='Type', palette='Greys', showfliers=False)
+    axs[1].set_ylabel(error.upper().replace('_PCT', '') + ' (%)', fontsize=fs)
+    axs[1].set_xticklabels(xticks, fontsize=fs, rotation=90); 
+    
+    
+    # RMSPE
+    sns.boxplot(ax=axs[2], data=temp, y='pct_same', x='dataset', hue='Type', palette='Greys', showfliers=False)
+    axs[2].set_ylabel('Similarity direction (%)', fontsize=fs)
+    axs[2].set_xticklabels(xticks, fontsize=fs, rotation=90); 
+        
+    for i in range(3):
+        axs[i].set_xlabel('')
+        axs[i].tick_params(axis='y', labelsize=fs)
+        
+    for c in range(len(temp2['dataset'].unique())):
+        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
+        
+    for c in range(len(temp['dataset'].unique())):
+        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
+        axs[2].axvline(c+0.5, c=c_vlines, linestyle=':')
+            
+    # legend
+    axs[2].legend(bbox_to_anchor=(1, 1), fontsize=fs)
+    axs[1].legend_.remove()
+    axs[0].legend_.remove()
+    
+    #fig.suptitle(sector + '\n')
+    fig.tight_layout()
+    fig.text(x=0, y=1, s=sector + '\n', fontsize=fs)
+    plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '_with_emissions.png', dpi=200, bbox_inches='tight')
+    plt.show()
+    
+data_order = ['Exiobase, Figaro', 'Exiobase, Gloria', 'Exiobase, ICIO', 'Figaro, Gloria',  'ICIO, Figaro', 'ICIO, Gloria',]
+type_order = ['Total', 'Imports']
+
+
+n=10
+for Type in type_order:   
+    top_sectors = mean_co2[Type].sum(axis=0, level=0).reset_index().sort_values('mean_co2', ascending=False)['sector'].tolist()
+    
+    for r in range(n):
+        
+        sector = top_sectors[r]
+        
+        temp = results.loc[(results['Sector'] == sector) & (results['Type'] == Type)]
+        temp['dataset'] = pd.Categorical(temp['dataset'], categories=data_order, ordered=True)
+        
+        temp2 = sector_co2.reset_index()
+        temp2 = temp2.loc[(temp2['sector'] == sector) & (temp2['Type'] == Type)]
+        temp2['dataset'] = pd.Categorical(temp2['dataset'], categories=['Exiobase', 'Figaro', 'Gloria', 'ICIO'], ordered=True)
+        
+        temp = temp.rename(index=sector_dict).reset_index()
+        temp['Sector'] = temp['Sector'] + '\n\n'
+        
+        xticks = [x.replace(' ', '\n') for x in data_order]
+        
+        if r == n-1:
+            fig, axs = plt.subplots(ncols=3, figsize=(15, 3))
+        else:
+            fig, axs = plt.subplots(ncols=3, figsize=(15, 2))
+        
+        
+        # Mean
+        sns.barplot(ax=axs[0], data=temp2, y='ktCO2', x='dataset', color='#E2E2E2', edgecolor='k', ci=68)
+        #axs[0].set_yscale('log')
+        axs[0].set_ylabel('ktCO2', fontsize=fs)
+        
+        
+        # Error
+        sns.boxplot(ax=axs[1], data=temp, y=error.upper(), x='dataset', color='#E2E2E2', showfliers=False)
+        axs[1].set_ylabel(error.upper().replace('_PCT', '') + ' (%)', fontsize=fs)
+        
+        
+        # RMSPE
+        sns.boxplot(ax=axs[2], data=temp, y='pct_same', x='dataset', color='#E2E2E2', showfliers=False)
+        axs[2].set_ylabel('Sim. dir. (%)', fontsize=fs)
+            
+        for i in range(3):
+            axs[i].set_xlabel('')
+            axs[i].tick_params(axis='y', labelsize=fs)
+            
+        for c in range(len(temp2['dataset'].unique())):
+            axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
+            
+        for c in range(len(temp['dataset'].unique())):
+            axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
+            axs[2].axvline(c+0.5, c=c_vlines, linestyle=':')
+        
+        if r == n-1:
+            axs[0].set_xticklabels(temp2['dataset'].unique(), fontsize=fs, rotation=90);
+            axs[1].set_xticklabels(xticks, fontsize=fs, rotation=90); 
+            axs[2].set_xticklabels(xticks, fontsize=fs, rotation=90); 
+        else:
+            axs[0].set_xticks([])
+            axs[1].set_xticks([])
+            axs[2].set_xticks([])
+        
+        #fig.suptitle(sector + '\n')
+        fig.tight_layout()
+        #fig.text(x=0, y=0.9, s=Type + ': ' + sector + '\n', fontsize=fs)
+        plt.savefig(plot_filepath + 'Boxplot_bysector_' + Type + '_' + sector + '_with_emissions.png', dpi=200, bbox_inches='tight')
+        plt.show()
+    
+    
+# emissions only barplot
+temp2 = sector_co2.reset_index()
+temp2['dataset'] = pd.Categorical(temp2['dataset'], categories=['Exiobase', 'Figaro', 'Gloria', 'ICIO'], ordered=True)
+temp2['Type'] = pd.Categorical(temp2['Type'], categories=type_order, ordered=True)
+
+fig, ax = plt.subplots(figsize=(10, 15))
+#sns.barplot(ax=ax, data=temp2, y='ktCO2', x='dataset', hue='Type', palette='Greys', edgecolor='k', ci=68)
+sns.barplot(ax=ax, data=temp2, y='sector', x='ktCO2', hue='dataset' , palette='Greys', ci=68)
+plt.show()
+    
+    
+check = results.drop(['index'], axis=1).groupby(['dataset', 'Type', 'Sector']).describe()
+    
+# w/o emissions
+for sector in results['Sector'].unique()[:10]:
     
     temp = results.set_index('Sector').loc[sector]
     temp['dataset'] = pd.Categorical(temp['dataset'], categories=data_order, ordered=True)
@@ -272,37 +472,73 @@ for sector in results['Sector'].unique():
     temp = temp.rename(index=sector_dict).reset_index()
     temp['Sector'] = temp['Sector'] + '\n\n'
     
-    fig, axs = plt.subplots(ncols=3, figsize=(10, 3), sharex=True)
+    xticks = [x.replace(' ', '\n') for x in data_order]
     
-    # Mean
-    sns.barplot(ax=axs[0], data=temp2, y='mean_co2', x='dataset', hue='Type')
-    axs[0].set_yscale('log')
+    fig, axs = plt.subplots(ncols=2, figsize=(12, 5), sharex=True)
     
+    # Error
+    sns.boxplot(ax=axs[0], data=temp, y=error.upper(), x='dataset', hue='Type', palette='Greys', showfliers=False)
     
-    # RMSPE
-    sns.boxplot(ax=axs[1], data=temp, y=error.upper(), x='dataset', hue='Type', showfliers=False)
-    #axs[0].set_xlabel('')
-    #axs[0].tick_params(axis='y', labelsize=fs)
-    #axs[0].set_yscale('log')
-    #axs[0].set_ylim(0, 10**5)
+    axs[0].set_ylabel(error.upper().replace('_PCT', '') + ' (%)', fontsize=fs)
     
     
     # RMSPE
-    sns.boxplot(ax=axs[2], data=temp, y='pct_same', x='dataset', hue='Type', showfliers=False)
-    #axs[0].set_xlabel('')
-    #axs[0].tick_params(axis='y', labelsize=fs)
-    #axs[0].set_yscale('log')
-    #axs[0].set_ylim(0, 10**5)
-    
-    for c in range(len(temp['dataset'].unique())):
-        axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
-        axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
-        axs[2].axvline(c+0.5, c=c_vlines, linestyle=':')
+    sns.boxplot(ax=axs[1], data=temp, y='pct_same', x='dataset', hue='Type', palette='Greys', showfliers=False)
+    axs[1].set_ylabel('Similarity direction (%)', fontsize=fs)
         
-    axs[1].set_title(sector)
+    for i in range(2):
+        axs[i].set_xticklabels(xticks, fontsize=fs, rotation=90); 
+        axs[i].set_xlabel('')
+        axs[i].tick_params(axis='y', labelsize=fs)
+        
+        for c in range(len(temp['dataset'].unique())):
+            axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
+            
+    # legend
+    axs[1].legend(bbox_to_anchor=(1, 1), fontsize=fs)
+    axs[0].legend_.remove()
+    
+    #fig.suptitle(sector + '\n')
     fig.tight_layout()
+    fig.text(x=0, y=1, s=sector + '\n', fontsize=fs)
     plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '.png', dpi=200, bbox_inches='tight')
     plt.show()
+
+
+# sector detail
+
+openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
+openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
+
+country_order = []
+for item in openness['combined_name'].tolist():
+    if item in list(country_dict.keys()):
+        country_order.append(country_dict[item])
+    else:
+        country_order.append(item)
+
+openness['country'] = country_order
+
+
+for data in ['Total', 'Imports']:
+    
+    top_sectors = sectors[data][:10]
+    
+    for sector in top_sectors:
+        
+            
+        temp = results2.loc[(results2['Type'] == data) & (results2['Sector'] == sector)]
+        temp['country'] = pd.Categorical(temp['country'], country_order, ordered=True)
+
+        fig, axs = plt.subplots(nrows=3, sharex=True, figsize=(10, 15))
+
+        sns.lineplot(ax=axs[0], data=temp, hue='dataset', y=error.upper(), x='country')
+        sns.lineplot(ax=axs[1], data=temp, hue='dataset', y='pct_same', x='country')
+        sns.lineplot(ax=axs[2], data=temp, hue='dataset', y='corr', x='country')
+
+        axs[0].set_title(data + ': ' + sector)
+        plt.xticks(rotation=90)
+        
 
 
 # all together
@@ -378,6 +614,7 @@ for data in ['Total', 'Imports']:
     plt.show()
 
 ####
+
 
 summary = cp.copy(results)
 summary.replace([np.inf, -np.inf], 0, inplace=True)

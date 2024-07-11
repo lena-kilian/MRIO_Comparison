@@ -324,6 +324,25 @@ for data in ['Total', 'Imports']:
     results = results.append(plot_data.reset_index())
 
 
+
+fig, axs = plt.subplots(ncols=2, figsize=(10, 5), sharex=True, sharey=True)
+for i in range(2):
+    data = ['Total', 'Imports'][i]
+    plot_data = data_direction[data].reset_index().merge(data_error[data], on =['country', 'dataset']).set_index('country').loc[order].reset_index()  
+
+    sns.scatterplot(ax=axs[i], data=plot_data, x='pct_same', y=error.upper(), style='dataset', alpha=0.3)
+    axs[i].set_title(data)
+    #axs[i].set_xlabel('')
+    #axs[i].set_ylabel(error.upper().replace('_PCT', '') + ' (%)', fontsize=fs)
+    #axs[i].tick_params(axis='y', labelsize=fs)
+    #axs[0].set_yscale('log')
+
+    
+fig.tight_layout()
+plt.savefig(plot_filepath + 'Pointplot_similarity_vs_rmse_ALL.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
 # Plot with data on x
 
 temp = cp.copy(results)
