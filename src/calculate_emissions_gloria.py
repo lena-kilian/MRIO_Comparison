@@ -3,6 +3,10 @@
 Created on Mon Sep 25 14:31:51 2023
 
 @author: geolki
+
+updated by Julia Crook (CEMAC) to optimize the code by only reading what is necessary from csv files
+and by computing footprint using the components rather than a big matrix
+
 """
 
 # use pymrio https://pymrio.readthedocs.io/en/latest/notebooks/autodownload.html
@@ -10,147 +14,119 @@ Created on Mon Sep 25 14:31:51 2023
 # conda activate mrio
 
 import pandas as pd
-from sys import platform
-import calculate_emissions_functions as cef
+from sys import argv
+import numpy as np
 
 
-# set working directory
-# make different path depending on operating system
-if platform[:3] == 'win':
-    wd = 'O://'
-else:
-    wd = r'/Volumes/a72/' 
+from calculate_emissions_functions import *
 
-# define filepaths
-mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
-outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
-years = range(2010, 2019)
 
-stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
-#stressor_cat = "'co2_org_short_cycle_c_total_EDGAR_consistent'"
+#-------------------------------------------------------------------------------------
+# This should be run as python calculate_emission_gloria <config> <start_year> <end_year> [-n -v]
+# where config is a config file defining pathnames of files to read and output directory
+#       start_year and end_year define the years to read
+#       -n means run using minimum data (otherwise do it the old way with big matrices)
+#       -v = verbose
+#-------------------------------------------------------------------------------------
+def main():
 
-#'co2_excl_short_cycle_org_c_total_OECD_consistent'
-#'co2_org_short_cycle_c_total_OECD_consistent'
+    new=False # run in the old way
+    fextra='_old' # used for me to output files for testing
+    fout_extra='' # used for the footprint file to indicate we used the new/old way to do this
+    verbose=False
+    # in the old code it calculated e.L but should do L.e use this flag to define whether we should make the correction
+    if len(argv)<4:
+        print('Useage: python', argv[0], '<config> <start_year> <end_year> [-n -v]')
+        print('where -n means use new way to process data,\n-v means verbose')
+        exit()
 
-############
-## Gloria ##
-############
+    config_file=argv[1]
+    start_year=int(argv[2])
+    end_year=int(argv[3])
+    for i in range(4,len(argv)):
+        if argv[i]=='-n':
+            new=True
+            print('NEW')
+            fextra='_new'
+            fout_extra='_New'
+        elif argv[i]=='-v':
+            verbose=True
 
-readme = mrio_filepath + 'Gloria/GLORIA_ReadMe_057.xlsx'
-labels = pd.read_excel(readme, sheet_name=None)
 
-# get lookup to fix labels
-lookup = pd.read_excel('O://ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name=None)
+    # read config file to get filenames
+    mrio_filepath, outdir, labels_fname, lookup_fname, Z_fname, Y_fname, co2_fname = read_config(config_file)
 
-lookup['countries'] = lookup['countries'][['gloria', 'gloria_code_long']].drop_duplicates().dropna()
-lookup['countries']['gloria_combo'] = lookup['countries']['gloria'] + ' (' + lookup['countries']['gloria_code_long'] + ') '
+    z_idx, industry_idx, product_idx, iix,pix,y_cols, sat_rows=get_metadata_indices(mrio_filepath,labels_fname, lookup_fname)
 
-lookup['sectors'] = lookup['sectors'][['gloria']].drop_duplicates().dropna()
+    stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'" # use this to extract correct row from stressor dataset below. Only one row from this DF is needed in the analysis
 
-# fix Z labels
-t_cats = pd.DataFrame(labels['Sequential region-sector labels']['Sequential_regionSector_labels']).drop_duplicates(); t_cats.columns = ['label']
-temp_c = []
-for cs in t_cats['label']:
-    a = False
-    for item in cs.split('('):
-        if item.split(')')[0] in lookup['countries']['gloria_code_long'].tolist():
-            a = True
-            c = cs.split(item.split(')')[0])[0] + item.split(')')[0] + ')'
-            temp_c.append(c)
-    if a == False:
-        temp_c.append('NA')
-        
-if 'NA' in temp_c:
-    print('Missing coutry labels')
-    raise SystemExit
-        
-t_cats['country_full'] = temp_c
-t_cats['country'] = [x.split('(')[-1][:-1] for x in t_cats['country_full']]
-temp_s = []
-for i in range(len(t_cats)):
-    temp = t_cats.iloc[i, :]
-    temp_s.append(temp['label'].replace(temp['country_full'], ''))
-t_cats['sector'] = temp_s
+    if new:
+        # JAC work out which row stressor_cat is on
+        stressor_row = pd.Index(sat_rows).get_loc(stressor_cat)
 
-# fix final demand labels
-fd_cats = pd.DataFrame(labels['Sequential region-sector labels']['Sequential_finalDemand_labels'].dropna(how='all', axis=0)); fd_cats.columns = ['label']
+    # define sample year, normally this is: range(2010, 2019)
+    # here years is now determined from inputs,
+    # it used to be a range(2010, 2019). In future work this will likley be range(2001, 2023)
+    for year in range(start_year,end_year+1):
 
-temp_c = []
-for cs in fd_cats['label']:
-    a = False
-    for item in cs.split('('):
-        if item.split(')')[0] in lookup['countries']['gloria_code_long'].tolist():
-            a = True
-            c = cs.split(item.split(')')[0])[0] + item.split(')')[0] + ')'
-            temp_c.append(c)
-    if a == False:
-        temp_c.append('NA')
-        
-if 'NA' in temp_c:
-    print('Missing coutry labels')
-    raise SystemExit
+        # set up filepaths
+        # file name changes from 2017, so define this here
+        if year < 2017:
+            date_var = '20230314'
+        else:
+            date_var = '20230315'
 
-fd_cats['country_full'] = temp_c
-fd_cats['country'] = [x.split('(')[-1][:-1] for x in fd_cats['country_full']]
-temp_s = []
-for i in range(len(fd_cats)):
-    temp = fd_cats.iloc[i, :]
-    temp_s.append(temp['label'].replace(temp['country_full'], ''))
-fd_cats['fd'] = temp_s
+        split=Z_fname.split('%')
+        if len(split)>1:
+            z_filepath=mrio_filepath+split[0]+date_var+split[1]+str(year)+split[2]
+        else:
+            z_filepath=mrio_filepath+Z_fname
 
-# keep only industries
-t_cats['ind'] = t_cats['label'].str[-8:]
-industries = t_cats.loc[t_cats['ind'] == 'industry']
-products = t_cats.loc[t_cats['ind'] != 'industry']
+        split=Y_fname.split('%')
+        if len(split)>1:
+            y_filepath=mrio_filepath+split[0]+date_var+split[1]+str(year)+split[2]
+        else:
+            y_filepath=mrio_filepath+Y_fname
 
-# make index labels
-z_idx = pd.MultiIndex.from_arrays([t_cats['country'], t_cats['sector']])
-industry_idx = pd.MultiIndex.from_arrays([industries['country'], industries['sector']])
-product_idx = pd.MultiIndex.from_arrays([products['country'], products['sector']])
-y_cols = pd.MultiIndex.from_arrays([fd_cats['country'], fd_cats['fd']])
+        split=co2_fname.split('%')
+        if len(split)>1:
+            co2_filepath=mrio_filepath+split[0]+str(year)+split[1]
+        else:
+            co2_filepath=mrio_filepath+co2_fname
 
-sat_rows = labels['Satellites']['Sat_indicator']
+        outfile=outdir+'Gloria_CO2_' + str(year) + fout_extra+'.csv'
 
-# clear space in variable explorer to clear RAM
-del t_cats, temp_c, cs, a, c, temp_s, i, temp, fd_cats, industries, products, item
+        if new:
+            S, U, Y, stressor=read_data_new(z_filepath, y_filepath, co2_filepath, iix, pix, industry_idx, product_idx, y_cols, stressor_row)
+
+
+        else:    
+            S, U, Y, stressor=read_data_old(z_filepath, y_filepath, co2_filepath, z_idx,industry_idx, product_idx, y_cols, sat_rows, stressor_cat)
+
+
+        if verbose:
+            print('DBG: size S, U', S.shape, U.shape)
+            print('DBG: size Y', Y.shape, Y.to_numpy().shape)
+            print('DBG: size stressor', stressor.shape)
+            #np.save('Y_'+fextra+'.npy', Y.to_numpy())
+
+            print('Data loaded for ' + str(year))
+
+        if new:    
+            footprint=indirect_footprint_SUT_new(S, U, Y, stressor,verbose)    
+        else:
+            footprint=indirect_footprint_SUT(S, U, Y, stressor, verbose)    
+
+
+        if verbose:
+            print('Footprint calculated for ' + str(year))
     
-check_uk_gloria = {}
+        footprint.to_csv(outfile)
+        print('Footprint saved for ' + str(year))
 
-for year in years:
+    print('Gloria Done')
 
-    if year < 2017:
-        date_var = '20230314'
-    else:
-        date_var = '20230315'
-    
-    z_filepath = (mrio_filepath + 'Gloria/Main/' + date_var + '_120secMother_AllCountries_002_T-Results_' + str(year) + '_057_Markup001(full).csv') 
-    y_filepath = (mrio_filepath + 'Gloria/Main/' + date_var + '_120secMother_AllCountries_002_Y-Results_' + str(year) + '_057_Markup001(full).csv') 
-    co2_filepath = (mrio_filepath + 'Gloria/Satellite_Accounts/20230727_120secMother_AllCountries_002_TQ-Results_' + str(year) + '_057_Markup001(full).csv') 
-    
-    Z = pd.read_csv(z_filepath, header=None, index_col=None)
-    Z.index = z_idx; Z.columns = z_idx
-    S = Z.loc[industry_idx, product_idx]
-    U = Z.loc[product_idx, industry_idx]
-    del Z # remove Z to clear memory
-    
-    Y = pd.read_csv(y_filepath, header=None, index_col=None)
-    Y.index = z_idx; Y.columns = y_cols
-    Y = Y.loc[product_idx]
-    
-    stressor = pd.read_csv(co2_filepath, header=None, index_col=None)
-    stressor.index = sat_rows; stressor.columns = z_idx
-    stressor = stressor.loc[stressor_cat, industry_idx]
-    
-    print('Data loaded for ' + str(year))
 
-    # calculate gloria footprint
-    co2_gloria = cef.indirect_footprint_gloria(S, U, Y, stressor)
-
-    print('Footprint calculated for ' + str(year))
-    
-    co2_gloria.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/' + stressor_cat[1:-1] + '/CO2_' + str(year) + '.csv')
-    
-    print('Footprint saved for ' + str(year))
-
-print('Gloria done')
+if __name__ == '__main__':
+    main()
