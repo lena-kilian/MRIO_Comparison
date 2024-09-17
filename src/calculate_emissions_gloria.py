@@ -18,7 +18,7 @@ from sys import argv
 import numpy as np
 
 
-from calculate_emissions_functions import *
+from calculate_emissions_functions_gloria import *
 
 
 
