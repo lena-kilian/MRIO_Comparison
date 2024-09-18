@@ -16,19 +16,6 @@ import numpy as np
 #import scipy.linalg as sla
 
 
-#-----------------------------------------
-# to handle memory profiling line by line
-#-----------------------------------------
-import os
-
-mprof=os.environ['MPROFILE_Lbl']
-print('MPROFILE_Lbl', mprof)
-if mprof==1 or mprof=='1':
-    print('cef: importing mprofiler')
-    from memory_profiler import profile
-else:
-    from profile import *
-
 #----------------------------------------------------------------
 # read config file to get indir, outdir and filenames which are different
 # for small and large data
@@ -43,14 +30,16 @@ def read_config(cfname):
     # need to remove '\n' from line
     indir=lines[0][:-1]
     outdir=lines[1][:-1]
-    labels_fname=lines[2][:-1]
-    lookup_fname=lines[3][:-1]
-    Z_fname=lines[4][:-1]
-    Y_fname=lines[5][:-1]
-    co2_fname=lines[6][:-1]
+    lookupdir=lines[2][:-1]
+    labels_fname=lines[3][:-1]
+    lookup_fname=lines[4][:-1]
+    Z_fname=lines[5][:-1]
+    Y_fname=lines[6][:-1]
+    co2_fname=lines[7][:-1]
+    gloria_version=lines[8][:-1]
     cf.close()
 
-    return indir, outdir, labels_fname, lookup_fname, Z_fname, Y_fname, co2_fname
+    return indir, outdir, lookupdir, labels_fname, lookup_fname, Z_fname, Y_fname, co2_fname, gloria_version 
 
 
 #######################################################################################
@@ -107,14 +96,14 @@ def split_country_and_code(labels, valid_country_codes):
 # labels_fname is the filename for the labels file
 # lookup_fname is the filename for the lookup file
 #----------------------------------------------------------------
-@profile
-def get_metadata_indices(mrio_filepath, labels_fname, lookup_fname):
+
+def get_metadata_indices(mrio_filepath, lookup_filepath, labels_fname, lookup_fname):
     # read metadata which is used for column and row labels later on
     readme = mrio_filepath + labels_fname
     labels = pd.read_excel(readme, sheet_name=None)
 
     # get lookup to fix labels
-    lookup = pd.read_excel(mrio_filepath + lookup_fname, sheet_name=None)
+    lookup = pd.read_excel(lookup_filepath + lookup_fname, sheet_name=None)
     # get list of countries in dataset
     lookup['countries'] = lookup['countries'][['gloria', 'gloria_code']].drop_duplicates().dropna()
     lookup['countries']['gloria_combo'] = lookup['countries']['gloria'] + ' (' + lookup['countries']['gloria_code'] + ') '
@@ -200,7 +189,7 @@ def get_metadata_indices(mrio_filepath, labels_fname, lookup_fname):
 #     Y - the product_idx rows of Y
 #     stressor - the [stressor_row, industry_idx] part of co2_filepath (NB this is a single row)
 #--------------------------------------------------------------------
-@profile
+
 def read_data_new(z_filepath, y_filepath, co2_filepath, iix, pix, industry_idx, product_idx, y_cols, stressor_row):
 
     # read S and U directly from Z by specifying specific rows and cols
@@ -242,7 +231,7 @@ def read_data_new(z_filepath, y_filepath, co2_filepath, iix, pix, industry_idx, 
 #     Y - the product_idx rows of Y
 #     stressor - the [stressor_row, industry_idx] part of co2_filepath (NB this is a single row)
 #--------------------------------------------------------------------
-@profile
+
 def read_data_old(z_filepath,y_filepath,co2_filepath,z_idx,industry_idx, product_idx, y_cols, sat_rows, stressor_cat):
 
     # import Z file to make S and U tables
@@ -274,18 +263,17 @@ def read_data_old(z_filepath,y_filepath,co2_filepath,z_idx,industry_idx, product
 ## Gloria Emissions calculations
 ## The following functions are for calcluating the footprint
 ###########################################################################################
-@profile
-def make_x(Z, Y, verbose):
+
+def make_x(Z, Y):
     
     x = np.sum(Z, 1)+np.sum(Y, 1)
     x[x == 0] = 0.000000001
-    if verbose:
-        print("DBG: X shape is ", x.shape)
+
     return x
 
 # equivalent function of make_x but does it as components
-@profile
-def make_x_comp_new(S, U, Y, verbose):
+
+def make_x_comp_new(S, U, Y):
     # components of what was x
     sumS=np.sum(S,1)  # this is x1
     sumS[sumS == 0] = 0.000000001 # do this so dividing by 0 does not happen
@@ -294,13 +282,10 @@ def make_x_comp_new(S, U, Y, verbose):
     sumUY=sumU+sumY   # this is x2
     sumUY[sumUY==0] = 0.000000001 # do this so dividing by 0 does not happen
 
-    if verbose:
-        print('DBG: sumS, sumUY shape is ', sumS.shape, sumUY.shape)
-
     return sumS, sumUY
 
-@profile
-def make_L(Z, x, verbose):
+
+def make_L(Z, x):
     
     bigX = np.zeros(shape = (len(Z)))    
     bigX = np.tile(np.transpose(x), (len(Z), 1))
@@ -310,16 +295,12 @@ def make_L(Z, x, verbose):
     I_minus_A=np.identity(len(Z))-A
     L = np.linalg.inv(I_minus_A)
     #np.save('L_old.npy', L)
-    if verbose:
-        print('DBG: bigX shape is ', bigX.shape)
-        print('DBG: A shape is ', A.shape)
-        print('DBG: L shape is ', L.shape)
 
     return L
 
 # equivalent of make_L but does it as components
-@profile
-def make_L_comp_new(S, U, sumS, sumUY, verbose):
+
+def make_L_comp_new(S, U, sumS, sumUY):
 
     bigSumS = np.tile(np.transpose(sumS), (S.shape[0],1))
     bigSumUY = np.tile(np.transpose(sumUY), (U.shape[0],1))
@@ -357,9 +338,6 @@ def make_L_comp_new(S, U, sumS, sumUY, verbose):
     # use sci version - faster? Test this on big data on machine with multiple cores
     #L = sla.inv(I-np.matmul(Unorm, Snorm))
     #np.save('L_new.npy', L)
-    if verbose:
-        print('DBG: Unorm and Snorm shape', Unorm.shape, Snorm.shape)
-        print('DBG: L shape is ', L.shape)
     
     # As we are going to do e.L where the second half of e is 0 we only need the Ltl and Ltr components
     # but then we are going to multiply by Y where Y is 0 in top half so we only need Ltr
@@ -374,21 +352,20 @@ def make_e(stressor, x):
     e[0, 0:np.size(stressor)] = np.transpose(stressor)
     e = e/x
 
-@profile
-def make_Z_from_S_U(S, U, verbose):
+
+def make_Z_from_S_U(S, U):
     Z = np.zeros(shape = (np.size(S, 0)+np.size(U, 0), np.size(S, 1)+np.size(U, 1)))
     
     Z[np.size(S, 0):, 0:np.size(U, 1)] = U
     Z[0:np.size(S, 0), np.size(U, 1):] = S
-    if verbose:
-        print('DBG: make Z from S and U', Z.size, Z.shape )
+
 
     return Z
 
 # there is no equivalent of make_Z_from_S_U for the new way as we just work with S and U
 
 # I have pulled out the for loop that creates the footprint so I can time it
-@profile
+
 def calculate_footprint(bigY, eL, y_cols, su_idx, u_cols):
 
     footprint = np.zeros(shape = bigY.shape).T
@@ -401,8 +378,8 @@ def calculate_footprint(bigY, eL, y_cols, su_idx, u_cols):
     footprint = footprint[u_cols]
     return footprint
 
-@profile
-def indirect_footprint_SUT(S, U, Y, stressor, verbose):
+
+def indirect_footprint_SUT(S, U, Y, stressor):
     # make column names
     s_cols = S.columns.tolist()
     u_cols = U.columns.tolist()
@@ -411,15 +388,15 @@ def indirect_footprint_SUT(S, U, Y, stressor, verbose):
     y_cols = Y.columns
 
     # calculate emissions
-    Z = make_Z_from_S_U(S, U,verbose)
+    Z = make_Z_from_S_U(S, U)
     # clear memory
     del S, U
     
     bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
     bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y 
 
-    x = make_x(Z, bigY,verbose)
-    L = make_L(Z, x, verbose)
+    x = make_x(Z, bigY)
+    L = make_L(Z, x)
 
     bigstressor = np.zeros(shape = [np.size(Y, 0)*2, 1])
     bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
@@ -429,19 +406,12 @@ def indirect_footprint_SUT(S, U, Y, stressor, verbose):
     eL = np.dot(e, L)
     #np.save('eL_old.npy', eL)
 
-    if verbose:
-        print('DBG: bigY shape', bigY.shape)
-        print('DBG: e shape is ', e.shape, 'big_stressor is ', bigstressor.shape)
-        print('DBG: eL shape is ', eL.shape)
-
     footprint = calculate_footprint(bigY, eL, y_cols, su_idx, u_cols)
-    if verbose:
-         print('DBG: footprint shape is', footprint.shape)
- 
+
     return footprint
 
 # I have pulled out the calculation of the footprint so I can time it
-@profile
+
 def calculate_footprint_new(eL2,Y,y_cols,u_cols):
 
     # for each column in Y the code used to take the diagonal of bigY to find the dot product with eL
@@ -454,30 +424,24 @@ def calculate_footprint_new(eL2,Y,y_cols,u_cols):
     return footprint
 
 # equivalent of indirect_footprint_SUT but does it as components
-@profile
-def indirect_footprint_SUT_new(S, U, Y, stressor,verbose):
+
+def indirect_footprint_SUT_new(S, U, Y, stressor):
     # calculate emissions
-    sumS, sumUY=make_x_comp_new(S,U,Y,verbose)
+    sumS, sumUY=make_x_comp_new(S,U,Y)
 
     # stressor has 1 row also may be different indexing which messes up np.divide so just look at array
     stress=stressor.to_numpy()[0,:]
     e1=np.divide(stress, sumS) # lower part of e is 0 as bigstressor only had stressor in top part
     e2=0
-    if verbose:
-        print('DBG: e1 shape', e1.shape)
+
     #np.save('e1_new.npy', e1)
 
-    Ltr = make_L_comp_new(S, U, sumS, sumUY, verbose)
+    Ltr = make_L_comp_new(S, U, sumS, sumUY)
     #eL1=np.dot(e1,Ltl)
     eL2=np.dot(e1,Ltr)
-    if verbose:
-        print('DBG: Ltr shape', Ltr.shape)
-    #np.save('eL2_new.npy', eL2)
     
     y_cols = Y.columns
     u_cols=U.columns
     footprint=calculate_footprint_new(eL2,Y,y_cols,u_cols)
-    if verbose:
-        print('DBG: footprint shape is',footprint.shape)
 
     return footprint

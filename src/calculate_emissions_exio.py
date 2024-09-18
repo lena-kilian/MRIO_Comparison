@@ -26,7 +26,10 @@ mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'UKMRIO_Data/outputs/results_2023/'
 
-years = range(2010, 2019)
+stressor_var = 'GHG emissions AR5 (GWP100) | GWP100 (IPCC, 2010)'
+# 'Carbon dioxide (CO2) IPCC categories 1 to 4 and 6 to 7 (excl land use, land use change and forestry)'
+
+years = range(2010, 2021)
 
 ##############
 ## EXIOBASE ##
@@ -43,8 +46,7 @@ for year in years:
     exio_data['S'] = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0, 1], index_col = [0, 1]).T
     exio_data['U'] = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0, 1], index_col = [0, 1])
     exio_data['Y'] = pd.read_csv(filepath + 'final_demand.csv', sep='\t', header = [0, 1], index_col = [0, 1])
-    exio_data['co2'] = pd.DataFrame(pd.read_csv(filepath + 'F.txt', sep='\t', index_col=0, header=[0, 1])\
-        .loc['Carbon dioxide (CO2) IPCC categories 1 to 4 and 6 to 7 (excl land use, land use change and forestry)', :])
+    exio_data['co2'] = pd.DataFrame(pd.read_csv(filepath + 'F.txt', sep='\t', index_col=0, header=[0, 1]).loc[stressor_var, :])
     
     # calculate exio footprint
 

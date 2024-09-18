@@ -16,22 +16,20 @@ if platform[:3] == 'win':
 else:
     wd = r'/Volumes/a72/' 
 
+# define version
+version = '2024'
+footprint = 'ghg'
+
 # define filepaths
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
-years = range(2010, 2019)
-
-stressor_cat = "'co2_excl_short_cycle_org_c_total_EDGAR_consistent'"
-#'co2_excl_short_cycle_org_c_total_EDGAR_consistent'
-#'co2_org_short_cycle_c_total_EDGAR_consistent'
-#'co2_excl_short_cycle_org_c_total_OECD_consistent'
-#'co2_org_short_cycle_c_total_OECD_consistent'
+years = range(2010, 2021)
 
 # Load data
-co2_gloria = {year: pd.read_csv('O:/ESCoE_Project/data/Emissions/Gloria/' + stressor_cat[1:-1] + '/CO2_' + str(year) + '.csv', index_col=[0,1], header=[0, 1]) for year in years}# should be 2010
-co2_oecd = pickle.load(open(emissions_filepath + 'ICIO/ICIO_emissions.p', 'rb'))
-co2_figaro = pickle.load(open(emissions_filepath + 'Figaro/Figaro_emissions.p', 'rb'))
+co2_gloria = {year: pd.read_csv('O:/ESCoE_Project/data/Emissions/Gloria/Gloria_CO2_' + str(year) + '.csv', index_col=[0,1], header=[0, 1]) for year in years}# should be 2010
+co2_oecd = pickle.load(open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '.p', 'rb'))
+co2_figaro = pickle.load(open(emissions_filepath + 'Figaro/Figaro_emissions_' + footprint + '_v' + version + '.p', 'rb'))
 co2_exio = pickle.load(open(emissions_filepath + 'Exiobase/Exiobase_emissions.p', 'rb'))
 
 # Load lookup file
@@ -74,6 +72,8 @@ for year in years:
     # aggregate
     co2_figaro[year] = co2_figaro[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
     
+    print('Figaro', year, co2_figaro[year].sum().sum())
+    
     
     ##########
     ## ICIO ##
@@ -95,6 +95,8 @@ for year in years:
     # aggregate
     co2_oecd[year] = co2_oecd[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
     co2_oecd[year] = co2_oecd[year] *1000 # adjust to same unit as the others
+    
+    print('ICIO', year, co2_oecd[year].sum().sum())
 
     
     ############
@@ -102,8 +104,8 @@ for year in years:
     ############
     
     # make dictionaries
-    gloria_countries = lookup['countries'][['gloria_code_long', 'combined_name']].drop_duplicates();
-    gloria_countries = dict(zip(gloria_countries['gloria_code_long'], gloria_countries['combined_name']))
+    gloria_countries = lookup['countries'][['gloria_code', 'combined_name']].drop_duplicates();
+    gloria_countries = dict(zip(gloria_countries['gloria_code'], gloria_countries['combined_name']))
     
     gloria_sectors = lookup['sectors'][['gloria', 'combined_name']].dropna(how='any').drop_duplicates();
     gloria_sectors = dict(zip(gloria_sectors['gloria'], gloria_sectors['combined_name']))
@@ -121,11 +123,14 @@ for year in years:
     co2_gloria[year].columns = pd.MultiIndex.from_arrays([[gloria_countries[x] for x in c], [gloria_fd[x] for x in f]])
     # aggregate
     co2_gloria[year] = co2_gloria[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
+    
+    
+    print('Gloria', year, co2_gloria[year].sum().sum())
 
     ##########
     ## EXIO ##
     ##########
-    
+    '''
     # make dictionaries
     exio_countries = lookup['countries'][['exio_code', 'combined_name']].drop_duplicates();
     exio_countries = dict(zip(exio_countries['exio_code'], exio_countries['combined_name']))
@@ -142,7 +147,7 @@ for year in years:
     co2_exio[year].columns = pd.MultiIndex.from_arrays([[exio_countries[x[0]] for x in co2_exio[year].columns.tolist()], [exio_fd[x[1]] for x in co2_exio[year].columns.tolist()]])
     # aggregate
     co2_exio[year] = co2_exio[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
-    
+    '''
 # Save all
 co2_all = {}
 co2_all['gloria'] = co2_gloria
