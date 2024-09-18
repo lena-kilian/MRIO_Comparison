@@ -33,7 +33,7 @@ fout_extra='' # used for the footprint file to indicate we used the new/old way 
 
 config_file='O:/ESCoE_Project/data/MRIO/Gloria/config_large.cfg'
 start_year=2010
-end_year=2010
+end_year=2020
 
 
 # read config file to get filenames
