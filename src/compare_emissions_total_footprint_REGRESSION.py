@@ -13,6 +13,8 @@ import seaborn as sns
 import numpy as np
 import copy as cp
 from sklearn.linear_model import LinearRegression
+import statsmodels.api as sm
+from sklearn.preprocessing import PolynomialFeatures
 
 # set working directory
 # make different path depending on operating system
@@ -97,6 +99,42 @@ country_order = prop_im.sort_values('Percentage CO2 imported', ascending=False).
 ###################################
 
 # Total emissions
+# test which fit is best linear, quadratic, cubic
+
+reg_fit = pd.DataFrame()
+for country in summary.index.levels[0]:
+    for ds in ['Exiobase', 'Gloria', 'ICIO', 'Figaro']:
+    
+        temp = summary.loc[country, ds].reset_index()
+        #temp = temp.loc[temp['year'] != year]
+        
+        y = temp[ds]
+        x = temp[['year']]
+        
+        x1 = sm.add_constant(x)
+        
+        polynomial_features= PolynomialFeatures(degree=2)
+        x2 = polynomial_features.fit_transform(x)
+        
+        polynomial_features= PolynomialFeatures(degree=3)
+        x3 = polynomial_features.fit_transform(x)
+ 
+        #fit regression model
+        model1 = sm.OLS(y, x1).fit()
+        model2 = sm.OLS(y, x2).fit()
+        model3 = sm.OLS(y, x3).fit()
+        
+        new = pd.DataFrame(index=[0])
+        new['ds'] = ds
+        new['country'] = country
+        new['aic1'] = model1.aic
+        new['aic2'] = model2.aic
+        new['aic3'] = model3.aic
+        
+        reg_fit = reg_fit.append(new)
+reg_fit = reg_fit.set_index(['country', 'ds'])
+reg_fit['aic_prop2'] = reg_fit['aic2'] / reg_fit['aic1']
+reg_fit['aic_prop3'] = reg_fit['aic3'] / reg_fit['aic1']
 
 # Sense check with individual years removed
 
@@ -108,16 +146,26 @@ for year in years + [0]:
             temp = summary.loc[country, ds].reset_index()
             temp = temp.loc[temp['year'] != year]
             
-            regressor = LinearRegression()
-            regressor.fit(temp[['year']], temp[ds])
+            y = temp[ds]
+            x = temp[['year']]
+            x = sm.add_constant(x)
+ 
+            #fit regression model
+            model = sm.OLS(y, x).fit()
             
             new = pd.DataFrame(index=[0])
             new['ds'] = ds
             new['country'] = country
-            new['coef'] = regressor.coef_
+            new['coef'] = model.params['year']
+            new['r2'] = model.rsquared
+            new['r2_ajd'] = model.rsquared_adj
             new['year'] = year
+                        
             
             reg_check = reg_check.append(new)
+
+reg_check_summary = reg_check.loc[reg_check['year'] != 0].drop(['year', 'r2_ajd'], axis=1)\
+    .groupby(['country', 'ds']).describe().swaplevel(axis=1)[['mean', 'std']]
 
 reg_check2 = reg_check.groupby(['country', 'year']).describe()['coef'][['min', 'max']]
 reg_check2['crosses 0'] = 0
@@ -128,8 +176,9 @@ reg_check2 = reg_check2[['crosses 0']].unstack()
 
 # All years
 
-reg_results = reg_check.loc[reg_check['year'] == 0].drop('year', axis=1)
+reg_results = reg_check.loc[reg_check['year'] == 0][['ds', 'country', 'coef']]
 reg_results = reg_results.set_index(['country', 'ds']).unstack().droplevel(axis=1, level=0)
+reg_results = reg_results.loc[country_order]
 
 reg_result2 = cp.copy(reg_results)
 reg_result2['mean_co2'] = summary.reset_index('country').groupby('country').mean().mean(1)
@@ -141,15 +190,52 @@ temp.loc[(temp['max'] > 0) & (temp['min'] < 0), 'crosses 0'] = True
 
 # plot
 plot_data = reg_result2.drop('mean_co2', axis=1).join(temp[['crosses 0']]).loc[country_order].set_index('crosses 0', append=True)\
-    .stack().reset_index().rename(columns={0:'Average pct change'})
+    .stack().reset_index().rename(columns={0:'Average pct change', 'level_2':'Data'})
     
 fig, ax = plt.subplots(figsize=(15, 5))
-sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', hue='crosses 0'); 
-plt.xticks(rotation=90)
+sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='crosses 0'); 
+plt.xticks(rotation=90); plt.title('Total')
 plt.axhline(0, c='k'); plt.show()
 
 
 # Imported emissions
+
+# test which fit is best linear, quadratic, cubic
+
+reg_fit_im = pd.DataFrame()
+for country in summary_im.index.levels[0]:
+    for ds in ['Exiobase', 'Gloria', 'ICIO', 'Figaro']:
+    
+        temp = summary_im.loc[country, ds].reset_index()
+        #temp = temp.loc[temp['year'] != year]
+        
+        y = temp[ds]
+        x = temp[['year']]
+        
+        x1 = sm.add_constant(x)
+        
+        polynomial_features= PolynomialFeatures(degree=2)
+        x2 = polynomial_features.fit_transform(x)
+        
+        polynomial_features= PolynomialFeatures(degree=3)
+        x3 = polynomial_features.fit_transform(x)
+ 
+        #fit regression model
+        model1 = sm.OLS(y, x1).fit()
+        model2 = sm.OLS(y, x2).fit()
+        model3 = sm.OLS(y, x3).fit()
+        
+        new = pd.DataFrame(index=[0])
+        new['ds'] = ds
+        new['country'] = country
+        new['aic1'] = model1.aic
+        new['aic2'] = model2.aic
+        new['aic3'] = model3.aic
+        
+        reg_fit_im = reg_fit_im.append(new)
+reg_fit_im = reg_fit_im.set_index(['country', 'ds'])
+reg_fit_im['aic_prop2'] = reg_fit_im['aic2'] / reg_fit_im['aic1']
+reg_fit_im['aic_prop3'] = reg_fit_im['aic3'] / reg_fit_im['aic1']
 
 # Sense check with individual years removed
 
@@ -161,13 +247,19 @@ for year in years + [0]:
             temp = summary_im.loc[country, ds].reset_index()
             temp = temp.loc[temp['year'] != year]
             
-            regressor = LinearRegression()
-            regressor.fit(temp[['year']], temp[ds])
+            y = temp[ds]
+            x = temp[['year']]
+            x = sm.add_constant(x)
+            
+            #fit regression model
+            model = sm.OLS(y, x).fit()
             
             new = pd.DataFrame(index=[0])
             new['ds'] = ds
             new['country'] = country
-            new['coef'] = regressor.coef_
+            new['coef'] = model.params['year']
+            new['r2'] = model.rsquared
+            new['r2_ajd'] = model.rsquared_adj
             new['year'] = year
             
             reg_check_im = reg_check_im.append(new)
@@ -181,24 +273,24 @@ reg_check_im2 = reg_check_im2[['crosses 0']].unstack()
 
 # All years
 
-reg_results_im = reg_check_im.loc[reg_check_im['year'] == 0].drop('year', axis=1)
+reg_results_im = reg_check_im.loc[reg_check_im['year'] == 0][['ds', 'country', 'coef']]
 reg_results_im = reg_results_im.set_index(['country', 'ds']).unstack().droplevel(axis=1, level=0)
 
-reg_result2 = cp.copy(reg_results_im)
-reg_result2['mean_co2'] = summary_im.reset_index('country').groupby('country').mean().mean(1)
-reg_result2 = reg_result2.apply(lambda x: x/reg_result2['mean_co2'] *100)
+reg_result2_im = cp.copy(reg_results_im)
+reg_result2_im['mean_co2'] = summary_im.reset_index('country').groupby('country').mean().mean(1)
+reg_result2_im = reg_result2_im.apply(lambda x: x/reg_result2_im['mean_co2'] *100)
 
-temp = reg_result2.drop('mean_co2', axis=1).T.describe().T[['max', 'min']]
+temp = reg_result2_im.drop('mean_co2', axis=1).T.describe().T[['max', 'min']]
 temp['crosses 0'] = False
 temp.loc[(temp['max'] > 0) & (temp['min'] < 0), 'crosses 0'] = True
 
 # plot
-plot_data = reg_result2.drop('mean_co2', axis=1).join(temp[['crosses 0']]).loc[country_order].set_index('crosses 0', append=True)\
-    .stack().reset_index().rename(columns={0:'Average pct change'})
+plot_data = reg_result2_im.drop('mean_co2', axis=1).join(temp[['crosses 0']]).loc[country_order].set_index('crosses 0', append=True)\
+    .stack().reset_index().rename(columns={0:'Average pct change', 'level_2':'Data'})
     
 fig, ax = plt.subplots(figsize=(15, 5))
-sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', hue='crosses 0'); 
-plt.xticks(rotation=90)
+sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='crosses 0'); 
+plt.xticks(rotation=90); plt.title('Imports')
 plt.axhline(0, c='k'); plt.show()
 
 

@@ -13,6 +13,7 @@ import seaborn as sns
 import numpy as np
 import copy as cp
 from sklearn.linear_model import LinearRegression
+from scipy.interpolate import make_interp_spline
 
 # set working directory
 # make different path depending on operating system
@@ -60,8 +61,6 @@ for c in openness['combined_name']:
 
 openness['country'] = country_order
 '''
-
-
 
 ###############
 ## Summarise ##
@@ -118,7 +117,7 @@ for country in summary.index.levels[0]:
     fig, axs = plt.subplots(figsize=(15, 5), ncols=2)
     # Total
     plot_data = summary.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
-    sns.lineplot(ax=axs[0], data=plot_data, x='year', y='tCO2', hue='Datasets')
+    sns.lmplot(data=plot_data, x='year', y='tCO2', hue='Datasets')
     # Imports
     plot_data = summary_im.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
     sns.lineplot(ax=axs[1], data=plot_data, x='year', y='tCO2', hue='Datasets')
@@ -127,9 +126,51 @@ for country in summary.index.levels[0]:
     axs[1].set_title('Imports')
     
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'Lineplot_CO2_' + country + '_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Lineplot_CO2_' + country + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
 '''
+for country in summary.index.levels[0]:
+    
+    fig, axs = plt.subplots(figsize=(15, 5), ncols=2)
+    
+    for i in range(2):
+        val = ['Total', 'Imports'][i]
+        
+        if val == 'Total':
+            plot_data = summary.loc[country].reset_index()
+        else:
+            plot_data = summary_im.loc[country].reset_index()
+            
+        plot_data_new = pd.DataFrame()
+        for ds in ['ICIO', 'Exiobase', 'Gloria', 'Figaro']:
+        
+            x = plot_data[ds].tolist()
+            mean_x = [(x[0]+x[1])/2]
+            for j in range(1, len(x)-1):
+                mean_x.append((x[j-1] + x[j] + x[j+1])/3)
+            mean_x.append((x[-2]+x[-1])/2)
+
+            mean_x = np.array(mean_x)
+            y = np.array(plot_data['year'])
+             
+            X_Y_Spline = make_interp_spline(y, mean_x)
+        
+            temp = pd.DataFrame(columns=['year', 'GHG (tCO2e)'])
+            temp['year'] = np.linspace(y.min(), y.max(), 80)
+            temp['GHG (tCO2e)'] = X_Y_Spline(temp['year'])
+            temp['Data'] = ds
+            
+            plot_data_new = plot_data_new.append(temp)
+            
+        plot_data_new.index = list(range(len(plot_data_new)))
+        sns.lineplot(ax=axs[i], data=plot_data_new, x='year', y='GHG (tCO2e)', hue='Data')
+        axs[i].set_title(val + ' - ' + country)
+      
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'Lineplot_CO2_3ymean_' + country + '_GHG.png', dpi=200, bbox_inches='tight')
+    plt.show()
+
+
 
 fig, axs = plt.subplots(nrows=len(country_order), ncols=2, figsize=(10, 120))
 for data in ['Total', 'Imports']:
@@ -147,51 +188,6 @@ for data in ['Total', 'Imports']:
         axs[r, c].set_title(country + ' - ' + data)
 plt.savefig(plot_filepath + 'Lineplot_CO2_all.png', dpi=200, bbox_inches='tight')
 plt.show()
-
-'''
-# corr with year
-
-check_tot = summary.reset_index().groupby('country').corr().unstack()
-check_tot.columns = [x[0] + ', ' + x[1] for x in check_tot.columns.tolist()]
-check_tot = check_tot[['year, Exiobase', 'year, ICIO', 'year, Gloria', 'year, Figaro'] + data_comb]
-
-
-check_imp = summary_im.reset_index().groupby('country').corr().unstack()
-check_imp.columns = [x[0] + ', ' + x[1] for x in check_imp.columns.tolist()]
-check_imp = check_imp[['year, Exiobase', 'year, ICIO', 'year, Gloria', 'year, Figaro'] + data_comb]
-'''
-
-# reg with year
-reg_results = pd.DataFrame()
-for country in summary.index.levels[0]:
-    for ds in ['Exiobase', 'Gloria', 'ICIO', 'Figaro']:
-    
-        temp = summary.loc[country, ds].reset_index()
-        
-        regressor = LinearRegression()
-        regressor.fit(temp[['year']], temp[ds])
-        
-        new = pd.DataFrame(index=[0])
-        new['ds'] = ds
-        new['country'] = country
-        new['coef'] = regressor.coef_
-        
-        reg_results = reg_results.append(new)
-
-reg_results = reg_results.set_index(['country', 'ds']).unstack()
-
-
-reg_result2 = cp.copy(reg_results.droplevel(axis=1, level=0))
-reg_result2['mean_co2'] = summary.reset_index('country').groupby('country').mean().mean(1)
-reg_result2 = reg_result2.apply(lambda x: x/reg_result2['mean_co2'] *100)
-
-temp = reg_result2.drop('mean_co2', axis=1).T.describe().T[['max', 'min']]
-temp['crosses 0'] = False
-temp.loc[(temp['max'] > 0) & (temp['min'] < 0), 'crosses 0'] = True
-
-plot_data = reg_result2.drop('mean_co2', axis=1).join(temp[['crosses 0']]).set_index('crosses 0', append=True)\
-    .stack().reset_index().rename(columns={0:'Average pct change'})
-sns.scatterplot(data=plot_data, x='country', y='Average pct change', hue='crosses 0'); plt.axhline(0); plt.show()
 
 #############################
 ## Longitudinal footprints ##
@@ -215,12 +211,35 @@ corr_s = corr_s[data_comb]
 
 plot_data = corr_s.stack().reset_index().rename(columns={'level_1':'Data', 0:'Corr'})
 sns.boxplot(data=plot_data, x='Data', y='Corr'); plt.show()
-sns.scatterplot(data=plot_data, x='country', y='Corr'); plt.show()
 
 
-#######################
-## Local correlation ##
-#######################
+temp = plot_data.set_index(['country', 'Data'])
+temp['check'] = 0
+temp.loc[temp['Corr'] < 0.3, 'check'] = 1
+temp = temp[['check']].unstack(level=1).sum(1)
+
+plot_data = plot_data.set_index(['country']).loc[country_order]
+plot_data['below 0.3'] = temp > 0
+
+fig, ax = plt.subplots(figsize=(8,5))
+sns.boxplot(ax=ax, data=plot_data.reset_index(), x='country', y='Corr', hue='below 0.3'); 
+plt.axhline(0, c='k')
+plt.xticks(rotation=90); plt.show()
+
+prop_im_ds = summary_im.sum(axis=0, level=0) / summary.sum(axis=0, level=0)
+for comb in data_comb:
+    d0 = comb.split(', ')[0]
+    d1 = comb.split(', ')[1]
+    prop_im_ds[comb] = prop_im_ds[[d0, d1]].mean(1)
+prop_im_ds = prop_im_ds[data_comb].stack().reset_index().rename(columns={'level_1':'Data', 0:'Prop. imported'})
+plot_data = plot_data.merge(prop_im_ds, on=['country', 'Data'])
+
+sns.lmplot(data=plot_data, x='Prop. imported', y='Corr', hue='Data'); plt.show()
+sns.lmplot(data=plot_data, y='Prop. imported', x='Corr', hue='Data'); plt.show()
+
+############################
+## Checking maxs and mins ##
+############################
 
 maxmin = summary.reset_index('country').groupby('country').describe().swaplevel(axis=1)[['max', 'min']]
 
@@ -240,5 +259,3 @@ for country in country_order:
 peaks = peaks.astype(int)
 
 plot_data = peaks.stack(level=[0, 1]).reset_index().rename(columns={'level_0':'country', 'level_1':'Data', 'level_2':'value', 0:'year'})
-sns.boxplot(data=plot_data, x='country', y='year', hue='value'); plt.show()
-sns.boxplot(data=plot_data, x='country', y='min'); plt.show()

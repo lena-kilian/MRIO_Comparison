@@ -86,12 +86,12 @@ sector_dict = {
 
 
 # get openness of economy for ordering graphs
-openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
-openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
+# openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
+# openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
 
-country_order = openness['combined_name'].tolist()
+# country_order = openness['combined_name'].tolist()
 
-openness['country'] = country_order
+# openness['country'] = country_order
            
 ###############
 ## Summarise ##
@@ -143,6 +143,11 @@ for data in ['Total', 'Imports']:
 
 
 temp = mean_co2_sector['Total'].join(mean_co2_sector['Imports'], rsuffix='_import')
+
+
+# sort by country order
+prop_im = pd.DataFrame((summary_im / summary).mean(1).mean(axis=0, level=0)).rename(columns={0:'Percentage CO2 imported'})
+country_order = prop_im.sort_values('Percentage CO2 imported', ascending=False).index.tolist()
 
 ################# 
 ## Correlation ##
@@ -372,7 +377,7 @@ for sector in results['Sector'].unique()[:10]:
     #fig.suptitle(sector + '\n')
     fig.tight_layout()
     fig.text(x=0, y=1, s=sector + '\n', fontsize=fs)
-    plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '_with_emissions_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '_with_emissions_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
     
 data_order = ['Exiobase, Figaro', 'Exiobase, Gloria', 'Exiobase, ICIO', 'Figaro, Gloria',  'ICIO, Figaro', 'ICIO, Gloria',]
@@ -443,7 +448,7 @@ for Type in type_order:
         #fig.suptitle(sector + '\n')
         fig.tight_layout()
         #fig.text(x=0, y=0.9, s=Type + ': ' + sector + '\n', fontsize=fs)
-        plt.savefig(plot_filepath + 'Boxplot_bysector_' + Type + '_' + sector + '_with_emissions_COLOUR.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'Boxplot_bysector_' + Type + '_' + sector + '_with_emissions_GHG.png', dpi=200, bbox_inches='tight')
         plt.show()
     
     
@@ -501,7 +506,7 @@ for sector in results['Sector'].unique()[:10]:
     #fig.suptitle(sector + '\n')
     fig.tight_layout()
     fig.text(x=0, y=1, s=sector + '\n', fontsize=fs)
-    plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
 
 
@@ -613,7 +618,7 @@ for data in ['Total', 'Imports']:
         axs[0].axvline(c+0.5, c=c_vlines, linestyle=':')
         axs[1].axvline(c+0.5, c=c_vlines, linestyle=':')
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'Boxplot_bysector_' + data + '_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Boxplot_bysector_' + data + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
 
 ####

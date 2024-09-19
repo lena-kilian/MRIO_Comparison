@@ -202,7 +202,7 @@ for item in ['Total', 'Imports']:
     plt.tick_params(axis='x', labelsize=fs)
     plt.tick_params(axis='y', labelsize=fs)
     plt.legend(fontsize=fs)
-    plt.savefig(plot_filepath + 'lmplot_Direction_' + item + '_bydata_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'lmplot_Direction_' + item + '_bydata_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
      
     data_rmspe[item]['Dataset'] = data_rmspe[item]['dataset'] 
@@ -215,7 +215,7 @@ for item in ['Total', 'Imports']:
     plt.tick_params(axis='x', labelsize=fs)
     plt.tick_params(axis='y', labelsize=fs)
     plt.legend(fontsize=fs)
-    plt.savefig(plot_filepath + 'lmplot_RMSPE_' + item + '_bydata_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'lmplot_RMSPE_' + item + '_bydata_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
     
     corr[item] = pd.DataFrame(data_direction[item].groupby(['dataset']).corr().swaplevel(axis=0).loc['pct_same', 'prop_imported']).join(

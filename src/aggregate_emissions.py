@@ -90,11 +90,11 @@ for year in years:
     oecd_fd = dict(zip(oecd_fd['oecd_code'], oecd_fd['combined_name']))
     
     # rename indices
-    co2_oecd[year].index = pd.MultiIndex.from_arrays([[oecd_countries[x[0]] for x in co2_oecd[year].index.tolist()], [oecd_sectors[x[1]] for x in co2_oecd[year].index.tolist()]])
-    co2_oecd[year].columns = pd.MultiIndex.from_arrays([[oecd_countries[x[0]] for x in co2_oecd[year].columns.tolist()], [oecd_fd[x[1]] for x in co2_oecd[year].columns.tolist()]])
+    co2_oecd[year] = co2_oecd[year].rename(columns=oecd_countries).swaplevel(axis=1).rename(columns=oecd_fd).swaplevel(axis=1)\
+        .rename(index=oecd_countries).swaplevel(axis=0).rename(index=oecd_sectors).swaplevel(axis=0)
+   
     # aggregate
     co2_oecd[year] = co2_oecd[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
-    co2_oecd[year] = co2_oecd[year] *1000 # adjust to same unit as the others
     
     print('ICIO', year, co2_oecd[year].sum().sum())
 
@@ -130,7 +130,7 @@ for year in years:
     ##########
     ## EXIO ##
     ##########
-    '''
+    
     # make dictionaries
     exio_countries = lookup['countries'][['exio_code', 'combined_name']].drop_duplicates();
     exio_countries = dict(zip(exio_countries['exio_code'], exio_countries['combined_name']))
@@ -147,7 +147,11 @@ for year in years:
     co2_exio[year].columns = pd.MultiIndex.from_arrays([[exio_countries[x[0]] for x in co2_exio[year].columns.tolist()], [exio_fd[x[1]] for x in co2_exio[year].columns.tolist()]])
     # aggregate
     co2_exio[year] = co2_exio[year].sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
-    '''
+    co2_exio[year] = co2_exio[year] /1000000 # adjust to same unit as the others
+    
+    print('Exiobase', year, co2_exio[year].sum().sum())
+
+
 # Save all
 co2_all = {}
 co2_all['gloria'] = co2_gloria

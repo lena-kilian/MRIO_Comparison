@@ -81,6 +81,10 @@ for year in years:
     
 summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country', 'year'])
 
+# sort by country order
+prop_im = pd.DataFrame((summary_im / summary).mean(1).mean(axis=0, level=0)).rename(columns={0:'Percentage CO2 imported'})
+country_order = prop_im.sort_values('Percentage CO2 imported', ascending=False).index.tolist()
+
 ###################
 ## Plot together ##
 ###################
@@ -141,7 +145,7 @@ for c in range(len(plot_data['country'].unique())):
     
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'Lineplot_overview_bycountry_COLOUR.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'Lineplot_overview_bycountry_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 '''
 
@@ -179,7 +183,7 @@ axs[1].set_xticklabels(temp['Country'].unique(), rotation=90, va='center', fonts
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'scatterplot_overview_bycountry_COLOUR.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'scatterplot_overview_bycountry_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 
@@ -215,7 +219,7 @@ axs[1].set_xticklabels(temp['Country'].unique(), rotation=90, va='center', fonts
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'barplot_overview_bycountry_COLOUR.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'barplot_overview_bycountry_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 
@@ -263,6 +267,6 @@ axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=90, va='center', fonts
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'pointplot_overview_bycountry_COLOUR.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'pointplot_overview_bycountry_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 

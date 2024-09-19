@@ -63,17 +63,17 @@ country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United State
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
 
 # get openness of economy for ordering graphs
-openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
-openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
+# openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
+# openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
 
-country_order = []
-for c in openness['combined_name']:
-    if c in list(country_dict.keys()):
-        country_order.append(country_dict[c])
-    else:
-        country_order.append(c)
+# country_order = []
+# for c in openness['combined_name']:
+#     if c in list(country_dict.keys()):
+#         country_order.append(country_dict[c])
+#     else:
+#         country_order.append(c)
 
-openness['country'] = country_order
+#openness['country'] = country_order
 
 ###############
 ## Summarise ##
@@ -118,6 +118,9 @@ prop_im = pd.DataFrame((summary_im/summary * 100).mean(axis=0, level='country').
 mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
             'Imports' : pd.DataFrame(summary_im.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})}
 
+# sort by country order
+country_order = prop_im.sort_values('Percentage CO2 imported', ascending=False).index.tolist()
+
 #############################
 ## Longitudinal footprints ##
 #############################
@@ -136,7 +139,7 @@ for country in summary.index.levels[0]:
     axs[1].set_title('Imports')
     
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'Lineplot_CO2_' + country + '_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Lineplot_CO2_' + country + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
     
 
@@ -193,7 +196,7 @@ ax.set_ylabel('Average change per year', fontsize=fs)
 ax.set_xlabel('')
 plt.xticks(rotation=90, fontsize=fs); 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'scaterplot_slope_coef_' + country + '_COLOUR.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'scaterplot_slope_coef_' + country + '_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 fig, ax = plt.subplots(figsize=(15, 5))
@@ -442,7 +445,7 @@ ax.set_ylabel('Mean yearly pct. change', fontsize=fs)
 ax.set_xlabel('')
 plt.xticks(rotation=90, fontsize=fs); 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'scaterplot_avg_pct_change_Total_COLOUR.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'scaterplot_avg_pct_change_Total_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 # Imports
@@ -464,7 +467,7 @@ ax.set_ylabel('Mean yearly pct. change', fontsize=fs)
 ax.set_xlabel('')
 plt.xticks(rotation=90, fontsize=fs); 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'scaterplot_avg_pct_change_Imports_COLOUR.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'scaterplot_avg_pct_change_Imports_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 
@@ -558,7 +561,7 @@ for data in ['Total', 'Imports']:
         ax.axhline(0, c=c_vlines)
     
         fig.tight_layout()
-        plt.savefig(plot_filepath + 'Pointplot_similarity_bycountry_' + data + '_' + comp + '_COLOUR.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'Pointplot_similarity_bycountry_' + data + '_' + comp + '_GHG.png', dpi=200, bbox_inches='tight')
         plt.show()
         
 for comp in ['direction', 'rmse_pct']:
@@ -585,7 +588,7 @@ for comp in ['direction', 'rmse_pct']:
     ax.axhline(0, c=c_vlines)
 
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_' + comp + '_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_' + comp + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
     
     
@@ -613,7 +616,7 @@ for data in ['Total', 'Imports']:
     ax.axhline(0, c=c_vlines)
 
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'Pointplot_similarity_bycountry_' + data + '_averagepctchange_COLOUR.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Pointplot_similarity_bycountry_' + data + '_averagepctchange_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
     
 
