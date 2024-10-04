@@ -194,6 +194,7 @@ plot_data = reg_result2.drop('mean_co2', axis=1).join(temp[['crosses 0']]).loc[c
     
 fig, ax = plt.subplots(figsize=(15, 5))
 sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='crosses 0'); 
+plt.axhline(-1, linestyle=':', c='k'); plt.axhline(1, linestyle=':', c='k'); 
 plt.xticks(rotation=90); plt.title('Total')
 plt.axhline(0, c='k'); plt.show()
 
@@ -291,6 +292,7 @@ plot_data = reg_result2_im.drop('mean_co2', axis=1).join(temp[['crosses 0']]).lo
 fig, ax = plt.subplots(figsize=(15, 5))
 sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='crosses 0'); 
 plt.xticks(rotation=90); plt.title('Imports')
+plt.axhline(-1, linestyle=':', c='k'); plt.axhline(1, linestyle=':', c='k'); 
 plt.axhline(0, c='k'); plt.show()
 
 

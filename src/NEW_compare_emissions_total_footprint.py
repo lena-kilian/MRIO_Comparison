@@ -129,12 +129,12 @@ for country in summary.index.levels[0]:
     plt.savefig(plot_filepath + 'Lineplot_CO2_' + country + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
 '''
-for country in summary.index.levels[0]:
-    
-    fig, axs = plt.subplots(figsize=(15, 5), ncols=2)
-    
-    for i in range(2):
-        val = ['Total', 'Imports'][i]
+
+fig, axs = plt.subplots(figsize=(15, 120), ncols=2, nrows=len(country_order))
+for r in range(len(country_order)):
+    country = country_order[r]
+    for c in range(2):
+        val = ['Total', 'Imports'][c]
         
         if val == 'Total':
             plot_data = summary.loc[country].reset_index()
@@ -163,12 +163,11 @@ for country in summary.index.levels[0]:
             plot_data_new = plot_data_new.append(temp)
             
         plot_data_new.index = list(range(len(plot_data_new)))
-        sns.lineplot(ax=axs[i], data=plot_data_new, x='year', y='GHG (tCO2e)', hue='Data')
-        axs[i].set_title(val + ' - ' + country)
-      
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'Lineplot_CO2_3ymean_' + country + '_GHG.png', dpi=200, bbox_inches='tight')
-    plt.show()
+        sns.lineplot(ax=axs[r, c], data=plot_data_new, x='year', y='GHG (tCO2e)', hue='Data')
+        axs[r, c].set_title(val + ' - ' + country)
+fig.tight_layout()
+plt.savefig(plot_filepath + 'Lineplot_CO2_3ymean_all_GHG.png', dpi=200, bbox_inches='tight')
+plt.show()
 
 
 
@@ -208,6 +207,16 @@ for country in country_order:
 corr_s = summary.reset_index('country').groupby('country').corr('spearman').unstack(level=1)
 corr_s.columns = [x[0] + ', ' + x[1] for x in corr_s.columns]
 corr_s = corr_s[data_comb]
+
+corr_s2 = corr_s
+corr_s2['min < 0.3'] = corr_s2.min(1) < 0.3
+
+corr_check = pd.DataFrame(corr_s2.loc[corr_s2['min < 0.3'] == True].drop(['min < 0.3'], axis=1).stack())
+corr_check = corr_check.loc[corr_check[0] < 0.3]
+corr_check[0] = 1
+corr_check = corr_check.unstack().fillna(0)
+corr_check_d = corr_check.sum(0)
+corr_check_c = corr_check.sum(1)
 
 plot_data = corr_s.stack().reset_index().rename(columns={'level_1':'Data', 0:'Corr'})
 sns.boxplot(data=plot_data, x='Data', y='Corr'); plt.show()
