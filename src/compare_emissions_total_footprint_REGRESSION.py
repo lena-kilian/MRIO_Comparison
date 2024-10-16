@@ -29,6 +29,7 @@ pal = 'tab10'
 c_box = '#000000'
 c_vlines = '#B9B9B9'
 point_size = 20
+order_var = 'gdp' # 'prop_order'
 
 # define filepaths
 data_filepath = wd + 'ESCoE_Project/data/'
@@ -82,17 +83,32 @@ for year in years:
     summary_im = summary_im.append(temp_all.reset_index())
 summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
 
-
-# get percentage imported
-prop_im = pd.DataFrame((summary_im/summary * 100).mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'Percentage CO2 imported'})
-
 # Get means
 
 mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
             'Imports' : pd.DataFrame(summary_im.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})}
 
+####################
+## Sort countries ##
+####################
 
-country_order = prop_im.sort_values('Percentage CO2 imported', ascending=False).index.tolist()
+# get orders
+# get percentage imported
+prop_im = pd.DataFrame((summary_im/summary * 100).mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'Percentage CO2 imported'})
+prop_order = prop_im.sort_values('Percentage CO2 imported', ascending=False).index.tolist()
+
+# sort by GDP
+country_list = pd.DataFrame(co2_all[datasets[0]][years[0]].index.levels[0]).set_index(0)
+country_list['index_test'] = 1
+# GDP data https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
+gdp = pd.DataFrame(pd.read_csv(data_filepath + 'GDP/GDP.csv', header=2, index_col=0)[[str(x) for x in years]].mean(1)).dropna(0)\
+    .rename(index={'Korea, Rep.':'South Korea', 'Slovak Republic':'Slovakia', 'Czechia':'Czech Republic', 'Russian Federation':'Russia', 'Turkiye':'Turkey'})
+gdp = gdp.join(country_list, how='outer')
+gdp['country'] = gdp.index.tolist()
+gdp.loc[gdp['index_test'] != 1, 'country'] = 'Rest of the World'
+gdp = gdp.groupby('country').sum()[0].sort_values(0, ascending=False).rename(index=country_dict).index.tolist()
+
+country_order = eval(order_var)
 
 ###################################
 ## Regress footprints over years ##
