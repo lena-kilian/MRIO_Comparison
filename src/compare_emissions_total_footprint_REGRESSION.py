@@ -196,7 +196,11 @@ fig, ax = plt.subplots(figsize=(15, 5))
 sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='crosses 0'); 
 plt.axhline(-1, linestyle=':', c='k'); plt.axhline(1, linestyle=':', c='k'); 
 plt.xticks(rotation=90); plt.title('Total')
-plt.axhline(0, c='k'); plt.show()
+plt.axhline(0, c='k');
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'scatterplot_regresults_bycountry_total_GHG.png', dpi=200, bbox_inches='tight')
+plt.show()
 
 
 # Imported emissions
@@ -293,6 +297,8 @@ fig, ax = plt.subplots(figsize=(15, 5))
 sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='crosses 0'); 
 plt.xticks(rotation=90); plt.title('Imports')
 plt.axhline(-1, linestyle=':', c='k'); plt.axhline(1, linestyle=':', c='k'); 
-plt.axhline(0, c='k'); plt.show()
+plt.axhline(0, c='k');
 
-
+fig.tight_layout()
+plt.savefig(plot_filepath + 'scatterplot_regresults_bycountry_imports_GHG.png', dpi=200, bbox_inches='tight')
+plt.show()

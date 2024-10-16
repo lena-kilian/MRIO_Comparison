@@ -323,6 +323,7 @@ summary_sector_co2 = summary_sector_co2.unstack('Type')
 data_order = ['Exiobase, Figaro', 'Exiobase, Gloria', 'Exiobase, ICIO', 'Figaro, Gloria',  'ICIO, Figaro', 'ICIO, Gloria',]
 type_order = ['Total', 'Imports']
 
+'''
 for sector in results['Sector'].unique()[:10]:
     
     temp = results.set_index('Sector').loc[sector]
@@ -379,7 +380,7 @@ for sector in results['Sector'].unique()[:10]:
     fig.text(x=0, y=1, s=sector + '\n', fontsize=fs)
     plt.savefig(plot_filepath + 'Boxplot_bysector_' + sector + '_with_emissions_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
-    
+ 
 data_order = ['Exiobase, Figaro', 'Exiobase, Gloria', 'Exiobase, ICIO', 'Figaro, Gloria',  'ICIO, Figaro', 'ICIO, Gloria',]
 type_order = ['Total', 'Imports']
 
@@ -450,18 +451,19 @@ for Type in type_order:
         #fig.text(x=0, y=0.9, s=Type + ': ' + sector + '\n', fontsize=fs)
         plt.savefig(plot_filepath + 'Boxplot_bysector_' + Type + '_' + sector + '_with_emissions_GHG.png', dpi=200, bbox_inches='tight')
         plt.show()
-    
+ 
     
 # emissions only barplot
 temp2 = sector_co2.reset_index()
 temp2['dataset'] = pd.Categorical(temp2['dataset'], categories=['Exiobase', 'Figaro', 'Gloria', 'ICIO'], ordered=True)
 temp2['Type'] = pd.Categorical(temp2['Type'], categories=type_order, ordered=True)
 
+
 fig, ax = plt.subplots(figsize=(10, 15))
 #sns.barplot(ax=ax, data=temp2, y='ktCO2', x='dataset', hue='Type', palette='colorblind', edgecolor='k', ci=68)
 sns.barplot(ax=ax, data=temp2, y='sector', x='ktCO2', hue='dataset' , palette='colorblind', ci=68)
 plt.show()
-    
+  
     
 check = results.drop(['index'], axis=1).groupby(['dataset', 'Type', 'Sector']).describe()
     
@@ -621,6 +623,7 @@ for data in ['Total', 'Imports']:
     plt.savefig(plot_filepath + 'Boxplot_bysector_' + data + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
 
+
 ####
 
 
@@ -636,3 +639,4 @@ summary = summary.unstack(level=2).drop([
     ('mean_co2', 'std', 'Exiobase, ICIO'), ('mean_co2', 'std', 'Figaro, Gloria'),
     ('mean_co2', 'std', 'ICIO, Figaro'), ('mean_co2', 'std', 'ICIO, Gloria')], axis=1)
 
+'''

@@ -166,7 +166,7 @@ for r in range(len(country_order)):
         sns.lineplot(ax=axs[r, c], data=plot_data_new, x='year', y='GHG (tCO2e)', hue='Data')
         axs[r, c].set_title(val + ' - ' + country)
 fig.tight_layout()
-plt.savefig(plot_filepath + 'Lineplot_CO2_3ymean_all_GHG.png', dpi=200, bbox_inches='tight')
+#plt.savefig(plot_filepath + 'Lineplot_CO2_3yrmean_all_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 
@@ -243,8 +243,8 @@ for comb in data_comb:
 prop_im_ds = prop_im_ds[data_comb].stack().reset_index().rename(columns={'level_1':'Data', 0:'Prop. imported'})
 plot_data = plot_data.merge(prop_im_ds, on=['country', 'Data'])
 
-sns.lmplot(data=plot_data, x='Prop. imported', y='Corr', hue='Data'); plt.show()
-sns.lmplot(data=plot_data, y='Prop. imported', x='Corr', hue='Data'); plt.show()
+sns.lmplot(data=plot_data.fillna(0), x='Prop. imported', y='Corr', hue='Data'); plt.show()
+sns.lmplot(data=plot_data.fillna(0), y='Prop. imported', x='Corr', hue='Data'); plt.show()
 
 ############################
 ## Checking maxs and mins ##
