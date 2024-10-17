@@ -15,7 +15,8 @@ if platform[:3] == 'win':
     wd = 'O://'
 else:
     wd = r'/Volumes/a72/' 
-    
+  
+# define params
 corr_method = 'spearman' # 'pearson
 
 # define filepaths
@@ -23,14 +24,10 @@ data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 
+# load data
 co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'rb'))
 
-datasets = list(co2_all.keys())
-years = list(co2_all[datasets[0]].keys())
-
-# data lookups
-data_comb = ['ICIO, Figaro', 'Exiobase, ICIO', 'ICIO, Gloria', 'Exiobase, Figaro', 'Figaro, Gloria', 'Exiobase, Gloria']
-
+# Dictonaries
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
 
@@ -72,6 +69,14 @@ ind_dict = {'Electricity, gas, steam and air conditioning supply':'Electricity &
             'Private households':'Private households'
             }
 
+# Variable lookups
+datasets = list(data_dict.values()); datasets.sort()
+years = list(co2_all[list(data_dict.keys())[0]].keys())
+
+data_comb = []
+for i in range(len(datasets)):
+    for j in range(i+1, len(datasets)):
+        data_comb.append(datasets[i] + ', ' + datasets[j])
 
 ###############
 ## Summarise ##

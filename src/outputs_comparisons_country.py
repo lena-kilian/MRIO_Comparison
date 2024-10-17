@@ -40,7 +40,10 @@ country_order = pickle.load(open(outputs_filepath + 'country_order.p', 'rb'))[or
 datasets = summary_co2['Total'].columns.tolist(); datasets.sort()
 years = summary_co2['Total'].index.levels[0].tolist()
 
-data_comb = ['ICIO, Figaro', 'Exiobase, ICIO', 'ICIO, Gloria', 'Exiobase, Figaro', 'Figaro, Gloria', 'Exiobase, Gloria']
+data_comb = []
+for i in range(len(datasets)):
+    for j in range(i+1, len(datasets)):
+        data_comb.append(datasets[i] + ', ' + datasets[j])
 
 # plot params
 fs = 16

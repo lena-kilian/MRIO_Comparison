@@ -25,15 +25,21 @@ data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 
+# load data
 co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'rb'))
 
-datasets = list(co2_all.keys())
-years = list(co2_all[datasets[0]].keys())
-
-data_comb = ['ICIO, Figaro', 'Exiobase, ICIO', 'ICIO, Gloria', 'Exiobase, Figaro', 'Figaro, Gloria', 'Exiobase, Gloria']
-
+# Dictonaries
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
+
+# Variable lookups
+datasets = list(data_dict.values()); datasets.sort()
+years = list(co2_all[list(data_dict.keys())[0]].keys())
+
+data_comb = []
+for i in range(len(datasets)):
+    for j in range(i+1, len(datasets)):
+        data_comb.append(datasets[i] + ', ' + datasets[j])
 
 ###############
 ## Summarise ##
@@ -87,14 +93,15 @@ prop_im = (summary_im / summary * 100).mean(axis=0, level='country').mean(axis=1
 prop_order = prop_im.sort_values('prop_imported', ascending=False).set_index('country').rename(index=country_dict).index.tolist()
 
 # GDP
-country_list = pd.DataFrame(co2_all[datasets[0]][years[0]].index.levels[0]).set_index(0)
+country_list = pd.DataFrame(mean_co2['Total'].index).set_index('country')
 country_list['index_test'] = 1
 # GDP data https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
-gdp = pd.DataFrame(pd.read_csv(data_filepath + 'GDP/GDP.csv', header=2, index_col=0)[[str(x) for x in years]].mean(1)).dropna(0)\
-    .rename(index={'Korea, Rep.':'South Korea', 'Slovak Republic':'Slovakia', 'Czechia':'Czech Republic', 'Russian Federation':'Russia', 'Turkiye':'Turkey'})
+gdp = pd.DataFrame(pd.read_csv(data_filepath + 'GDP/GDP.csv', header=4, index_col=0)[[str(x) for x in years]].mean(1)).dropna(0)\
+    .rename(index={'Korea, Rep.':'South Korea', 'Slovak Republic':'Slovakia', 'Russian Federation':'Russia', 
+                   'Turkiye':'Turkey', 'United Kingdom':'UK', 'United States':'USA'})
 gdp = gdp.join(country_list, how='outer')
 gdp['country'] = gdp.index.tolist()
-gdp.loc[gdp['index_test'] != 1, 'country'] = 'Rest of the World'
+gdp.loc[gdp['index_test'] != 1, 'country'] = 'RoW'
 gdp = gdp.groupby('country').sum()[0].sort_values(0, ascending=False).rename(index=country_dict).index.tolist()
 
 # economic openness
