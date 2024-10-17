@@ -26,14 +26,14 @@ emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 plot_filepath = outputs_filepath + 'plots/'
 
-order_var = 'gdp' # 'prop_order'
+order_var = 'gdp' # 'prop_order' 'openness'
 same_direction_pct_cutoff = 1
 
 # import data
 summary_co2 = pickle.load(open(outputs_filepath + 'summary_co2_country.p', 'rb'))
 mean_co2 = pickle.load(open(outputs_filepath + 'mean_co2_country.p', 'rb'))
-data_rmse_pct = pickle.load(open(outputs_filepath + 'rmse_pct_country.p', 'rb'))
-data_direction = pickle.load(open(outputs_filepath + 'direction_annual_country.p', 'rb'))
+rmse_pct = pickle.load(open(outputs_filepath + 'rmse_pct_country.p', 'rb'))
+direction = pickle.load(open(outputs_filepath + 'direction_annual_country.p', 'rb'))
 reg_results = pickle.load(open(outputs_filepath + 'regression_country.p', 'rb'))
 
 country_order = pickle.load(open(outputs_filepath + 'country_order.p', 'rb'))[order_var]
@@ -41,6 +41,14 @@ datasets = summary_co2['Total'].columns.tolist(); datasets.sort()
 years = summary_co2['Total'].index.levels[0].tolist()
 
 data_comb = ['ICIO, Figaro', 'Exiobase, ICIO', 'ICIO, Gloria', 'Exiobase, Figaro', 'Figaro, Gloria', 'Exiobase, Gloria']
+
+# plot params
+fs = 16
+pal = 'tab10'
+c_box = '#000000'
+c_vlines = '#6d6d6d'
+point_size = 20
+scatter_size = 100
 
 ###############
 ## Summarise ##
@@ -57,13 +65,60 @@ summary_im = summary_co2['Imports']
 ## Change in trend - RMSE / Mean ##
 ###################################
 
+plot_data = rmse_pct['Total'].set_index('country').stack().reset_index().rename(columns={0:'Value'})
+plot_data['Type'] = 'Total'
+temp = rmse_pct['Imports'].set_index('country').stack().reset_index().rename(columns={0:'Value'})
+temp['Type'] = 'Imports'
+
+plot_data = plot_data.append(temp)
+
+fig, ax = plt.subplots(figsize=(20, 5), sharex=True)
+
+sns.boxplot(ax=ax, data=plot_data, x='dataset', y='Value', hue='Type', showfliers=False)
+ax.set_xlabel('')
+ax.set_ylabel('RMSE Pct.', fontsize=fs)
+ax.tick_params(axis='y', labelsize=fs)
+#ax.set_yscale('log')
+  
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=fs); 
+
+for c in range(len(plot_data['dataset'].unique())):
+    ax.axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+ax.axhline(0, c=c_vlines)
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_rmse_pct_GHG.png', dpi=200, bbox_inches='tight')
+plt.show()
+
 
 #################################
 ## Change in trend - Direction ##
 #################################
 
+plot_data = direction['Total']; plot_data['Type'] = 'Total'
+temp = direction['Imports']; temp['Type'] = 'Imports'
 
+plot_data = plot_data.append(temp)
 
+fig, ax = plt.subplots(figsize=(20, 5), sharex=True)
+
+sns.boxplot(ax=ax, data=plot_data, x='dataset', y='pct_same', hue='Type', showfliers=False)
+ax.set_xlabel('')
+ax.set_ylabel('Annual direction similarity', fontsize=fs)
+ax.tick_params(axis='y', labelsize=fs)
+#ax.set_yscale('log')
+  
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=fs); 
+
+for c in range(len(plot_data['dataset'].unique())):
+    ax.axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+ax.axhline(0, c=c_vlines)
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_direction_GHG.png', dpi=200, bbox_inches='tight')
+plt.show()
 
 
 ###################################
@@ -78,9 +133,10 @@ for item in ['Total', 'Imports']:
     plot_data['Same direction'] = pd.Categorical(plot_data['Same direction'], categories=[True, False], ordered=True)
         
     fig, ax = plt.subplots(figsize=(15, 5))
-    sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='Same direction'); 
+    sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='Same direction', s=scatter_size); 
     plt.xticks(rotation=90); plt.title(item)
-    plt.axhline(same_direction_pct_cutoff, linestyle=':', c='k'); plt.axhline(same_direction_pct_cutoff *-1, linestyle=':', c='k'); 
+    plt.axhline(same_direction_pct_cutoff,  c=c_vlines, linestyle=':'); 
+    plt.axhline(same_direction_pct_cutoff *-1, c=c_vlines, linestyle=':'); 
     plt.axhline(0, c='k');
     plt.legend(bbox_to_anchor=(1,1))
     plt.xlabel('')
