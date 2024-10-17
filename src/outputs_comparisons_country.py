@@ -144,3 +144,20 @@ for item in ['Total', 'Imports']:
     fig.tight_layout()
     plt.savefig(plot_filepath + 'scatterplot_regresults_bycountry_' + item + '_GHG.png', dpi=200, bbox_inches='tight')
     plt.show()
+
+#############################
+## Longitudinal footprints ##
+#############################
+
+fig, axs = plt.subplots(nrows=len(country_order), ncols=2, figsize=(10, 120))
+for c in range(2):
+    item = ['Total', 'Imports'][c]
+    temp = summary_co2[item]
+    
+    for r in range(len(country_order)):
+        country = country_order[r]
+        plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
+        sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tCO2', hue='Datasets', legend=False)
+        axs[r, c].set_title(country + ' - ' + item)
+plt.savefig(plot_filepath + 'Lineplot_CO2_all.png', dpi=200, bbox_inches='tight')
+plt.show()
