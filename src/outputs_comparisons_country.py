@@ -49,17 +49,51 @@ c_box = '#000000'
 c_vlines = '#6d6d6d'
 point_size = 20
 scatter_size = 100
+pal = 'tab10'
 
-###############
-## Summarise ##
-###############
+##########################
+## Total & Pct imported ##
+##########################
+
+percent_im = pd.DataFrame((summary_co2['Imports'].mean(axis=0, level=0) / summary_co2['Total'].mean(axis=0, level=0) * 100)\
+                          .stack()).reset_index().rename(columns={'level_1':'dataset', 0:'pct_im'})
+plot_data = mean_co2['Total'].stack().reset_index().rename(columns={'level_1':'dataset', 0:'mean_co2'})\
+    .merge(percent_im, on=['country', 'dataset'])
+plot_data['country_cat'] = pd.Categorical(plot_data['country'], categories=country_order, ordered=True)
+plot_data['dataset_cat'] = pd.Categorical(plot_data['dataset'], categories=datasets, ordered=True)
+    
+plot_data['Country'] = '                     ' + plot_data['country']
 
 
-# Total
-summary = summary_co2['Total']
+plot_data = plot_data.sort_values(['country_cat', 'dataset_cat'])
 
-# Imports
-summary_im = summary_co2['Imports']
+# Scatterplot
+fig, axs = plt.subplots(nrows=2, figsize=(20, 10), sharex=True)
+
+sns.scatterplot(ax=axs[0], data=plot_data, x='country', y='mean_co2', hue='dataset', s=scatter_size, palette=pal)
+axs[0].set_ylabel('Footprint (CO2)', fontsize=fs); 
+axs[0].set_yscale('log')
+
+sns.scatterplot(ax=axs[1], data=plot_data, x='country', y='pct_im', hue='dataset', s=scatter_size, palette=pal)
+axs[1].tick_params(axis='y', labelsize=fs)
+axs[1].set_ylabel('Emisions imported (%)', fontsize=fs); 
+
+axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), fontsize=fs, ncol=len(datasets), markerscale=3)
+axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.2), fontsize=fs, ncol=len(datasets), markerscale=3)
+
+for i in range(2):
+    axs[i].tick_params(axis='y', labelsize=fs)
+    axs[i].set_xlabel(' ')
+    for c in range(len(plot_data['country'].unique())-1):
+        axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
+    
+axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', fontsize=fs); 
+axs[1].xaxis.set_ticks_position('top') # the rest is the same
+
+fig.tight_layout()
+plt.savefig(plot_filepath + 'scatterplot_overview_bycountry_GHG.png', dpi=200, bbox_inches='tight')
+plt.show()
+
 
 ###################################
 ## Change in trend - RMSE / Mean ##
@@ -74,7 +108,7 @@ plot_data = plot_data.append(temp)
 
 fig, ax = plt.subplots(figsize=(20, 5), sharex=True)
 
-sns.boxplot(ax=ax, data=plot_data, x='dataset', y='Value', hue='Type', showfliers=False)
+sns.boxplot(ax=ax, data=plot_data, x='dataset', y='Value', hue='Type', showfliers=False, palette=pal)
 ax.set_xlabel('')
 ax.set_ylabel('RMSE Pct.', fontsize=fs)
 ax.tick_params(axis='y', labelsize=fs)
@@ -103,7 +137,7 @@ plot_data = plot_data.append(temp)
 
 fig, ax = plt.subplots(figsize=(20, 5), sharex=True)
 
-sns.boxplot(ax=ax, data=plot_data, x='dataset', y='pct_same', hue='Type', showfliers=False)
+sns.boxplot(ax=ax, data=plot_data, x='dataset', y='pct_same', hue='Type', showfliers=False, palette=pal)
 ax.set_xlabel('')
 ax.set_ylabel('Annual direction similarity', fontsize=fs)
 ax.tick_params(axis='y', labelsize=fs)
@@ -133,7 +167,7 @@ for item in ['Total', 'Imports']:
     plot_data['Same direction'] = pd.Categorical(plot_data['Same direction'], categories=[True, False], ordered=True)
         
     fig, ax = plt.subplots(figsize=(15, 5))
-    sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='Same direction', s=scatter_size); 
+    sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='Data', hue='Same direction', s=scatter_size, palette=pal)
     plt.xticks(rotation=90); plt.title(item)
     plt.axhline(same_direction_pct_cutoff,  c=c_vlines, linestyle=':'); 
     plt.axhline(same_direction_pct_cutoff *-1, c=c_vlines, linestyle=':'); 

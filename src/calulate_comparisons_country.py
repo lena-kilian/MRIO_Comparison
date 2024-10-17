@@ -72,8 +72,8 @@ summary_co2 = {'Total':summary, 'Imports':summary_im}
 pickle.dump(summary_co2, open(outputs_filepath + 'summary_co2_country.p', 'wb'))
 
 # Get means
-mean_co2 = {'Total' : pd.DataFrame(summary.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'}), 
-            'Imports' : pd.DataFrame(summary_im.mean(axis=0, level='country').mean(axis=1)).rename(columns={0:'mean_co2'})}
+mean_co2 = {'Total' : summary.mean(axis=0, level='country').rename(columns=data_dict, index=country_dict), 
+            'Imports' : summary_im.mean(axis=0, level='country').rename(columns=data_dict, index=country_dict)}
 # save
 pickle.dump(mean_co2, open(outputs_filepath + 'mean_co2_country.p', 'wb'))
 
