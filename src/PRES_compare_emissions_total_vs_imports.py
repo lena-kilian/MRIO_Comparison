@@ -24,7 +24,7 @@ data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 plot_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/plots/'
 
-order_var = 'gdp' # 'prop_order'
+order_var = 'gdp' # 'prop_order' 'openness'
 
 co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'rb'))
 
@@ -36,14 +36,6 @@ country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United State
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
 
 data_comb = ['oecd, figaro', 'oecd, exio', 'oecd, gloria', 'figaro, exio', 'figaro, gloria', 'exio, gloria']
-
-# get openness of economy for ordering graphs
-openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
-openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
-
-country_order = openness['combined_name'].tolist()
-
-openness['country'] = country_order
 
 ###############
 ## Summarise ##
@@ -93,6 +85,11 @@ summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country'
 prop_im = pd.DataFrame((summary_im / summary).mean(1).mean(axis=0, level=0)).rename(columns={0:'Percentage CO2 imported'})
 prop_order = prop_im.sort_values('Percentage CO2 imported', ascending=False).index.tolist()
 
+# get openness of economy for ordering graphs
+openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
+openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
+openness = openness['combined_name'].tolist()
+
 # sort by GDP
 country_list = pd.DataFrame(co2_all[datasets[0]][years[0]].index.levels[0]).set_index(0)
 country_list['index_test'] = 1
@@ -120,11 +117,8 @@ mean_co2_im = summary_im.mean(axis=0, level='country')
 percent_im = pd.DataFrame((mean_co2_im / mean_co2 * 100).stack()).reset_index()
 percent_im.columns = ['country', 'dataset', 'pct_im']
 
-#order = mean_co2.stack().mean(axis=0, level='country').sort_values(0, ascending=False).index.tolist()
-order = country_order
-
 percent_im['Dataset'] = percent_im['dataset'].map(data_dict)
-percent_im = percent_im.sort_values('Dataset').set_index('country').loc[order].rename(index=country_dict).reset_index()
+percent_im = percent_im.sort_values('Dataset').set_index('country').rename(index=country_dict).loc[country_order].rename(index=country_dict).reset_index()
 
 plot_data = mean_co2.stack().reset_index(); plot_data['Type'] = 'Total'
 temp = mean_co2_im.stack().reset_index(); temp['Type'] = 'Imports'
@@ -133,43 +127,7 @@ plot_data.columns = ['country', 'dataset', 'CO2', 'Type']
 plot_data.index = list(range(len(plot_data)))
 
 plot_data['Dataset'] = plot_data['dataset'].map(data_dict)
-plot_data = plot_data.sort_values('Dataset').set_index('country').loc[order].rename(index=country_dict).reset_index()
-
-
-## Lineplots
-'''
-fig, ax1 = plt.subplots(nrows=1, figsize=(20, 10))
-
-temp = cp.copy(plot_data)
-temp.loc[temp['Type'] == 'Imports', 'CO2'] = 0
-temp['Linetype'] = temp['Type'].map({'Total':'Total emissions', 'Imports':'Proportion imported (%)'})
-temp = temp.loc[(temp['Type'] == 'Total') | (temp['country'] == 'India')]
-
-
-sns.lineplot(ax=ax1, data=temp, x='country', y='CO2', hue='Dataset', style='Linetype')
-#plt.yscale('log')
-
-axs0_2 = ax1.twinx()
-sns.lineplot(ax=axs0_2, data=percent_im, y='pct_im', x='country', hue='Dataset', linestyle='--')
-axs0_2.tick_params(axis='y', labelsize=fs)
-axs0_2.set_ylabel('Emisions imported (%)', fontsize=fs); 
-
-ax1.set_ylabel('Footprint (CO2)', fontsize=fs); 
-
-ax1.set_xlabel('')
-ax1.tick_params(axis='y', labelsize=fs)
-ax1.tick_params(axis='x', labelsize=fs, rotation=90)
-ax1.legend(loc='upper center', bbox_to_anchor=(0.5, 1.35), fontsize=fs, ncol=len(plot_data['Dataset'].unique())+4)
-axs0_2.legend(bbox_to_anchor=(1.12, 1))
-for c in range(len(plot_data['country'].unique())):
-    ax1.axvline(c+0.5, c=c_vlines, linestyle=':')
-    
-
-fig.tight_layout()
-plt.savefig(plot_filepath + 'Lineplot_overview_bycountry_GHG.png', dpi=200, bbox_inches='tight')
-plt.show()
-'''
-
+plot_data = plot_data.sort_values('Dataset').set_index('country').rename(index=country_dict).loc[country_order].rename(index=country_dict).reset_index()
 
 
 ## Scatterplot

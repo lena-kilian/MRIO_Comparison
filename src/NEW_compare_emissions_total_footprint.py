@@ -37,7 +37,6 @@ plot_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/plots/'
 
 co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all.p', 'rb'))
 
-error = 'rmse_pct' # 'rmspe'
 corr_method = 'spearman' # 'pearson
 
 datasets = list(co2_all.keys())
@@ -48,20 +47,6 @@ data_comb = ['ICIO, Figaro', 'Exiobase, ICIO', 'ICIO, Gloria', 'Exiobase, Figaro
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
 data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'gloria':'Gloria', 'figaro':'Figaro'}
 
-'''
-# get openness of economy for ordering graphs
-openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', sheet_name='agg_data')
-openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)
-
-country_order = []
-for c in openness['combined_name']:
-    if c in list(country_dict.keys()):
-        country_order.append(country_dict[c])
-    else:
-        country_order.append(c)
-
-openness['country'] = country_order
-'''
 
 ###############
 ## Summarise ##
@@ -129,24 +114,6 @@ country_order = eval(order_var)
 #############################
 ## Longitudinal footprints ##
 #############################
-'''
-for country in summary.index.levels[0]:
-    
-    fig, axs = plt.subplots(figsize=(15, 5), ncols=2)
-    # Total
-    plot_data = summary.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
-    sns.lmplot(data=plot_data, x='year', y='tCO2', hue='Datasets')
-    # Imports
-    plot_data = summary_im.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
-    sns.lineplot(ax=axs[1], data=plot_data, x='year', y='tCO2', hue='Datasets')
-    
-    axs[0].set_title('Total')
-    axs[1].set_title('Imports')
-    
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'Lineplot_CO2_' + country + '_GHG.png', dpi=200, bbox_inches='tight')
-    plt.show()
-'''
 
 fig, axs = plt.subplots(figsize=(15, 120), ncols=2, nrows=len(country_order))
 for r in range(len(country_order)):
@@ -260,29 +227,3 @@ for comb in data_comb:
     prop_im_ds[comb] = prop_im_ds[[d0, d1]].mean(1)
 prop_im_ds = prop_im_ds[data_comb].stack().reset_index().rename(columns={'level_1':'Data', 0:'Prop. imported'})
 plot_data = plot_data.merge(prop_im_ds, on=['country', 'Data'])
-
-sns.lmplot(data=plot_data.fillna(0), x='Prop. imported', y='Corr', hue='Data'); plt.show()
-sns.lmplot(data=plot_data.fillna(0), y='Prop. imported', x='Corr', hue='Data'); plt.show()
-
-############################
-## Checking maxs and mins ##
-############################
-
-maxmin = summary.reset_index('country').groupby('country').describe().swaplevel(axis=1)[['max', 'min']]
-
-peaks = pd.DataFrame(index=country_order, columns=maxmin.swaplevel(axis=1).columns)
-for country in country_order:
-    for ds in list(data_dict.values()):
-        temp = summary.loc[country, ds:ds]
-        
-        max_val = maxmin.loc[country, ('max', ds)]
-        max_year = temp.loc[temp[ds] == max_val]
-        peaks.loc[country, (ds, 'max')] = max_year.index.values[0]
-        
-        min_val = maxmin.loc[country, ('min', ds)]
-        min_year = temp.loc[temp[ds] == min_val]
-        peaks.loc[country, (ds, 'min')] = min_year.index.values[0]
-
-peaks = peaks.astype(int)
-
-plot_data = peaks.stack(level=[0, 1]).reset_index().rename(columns={'level_0':'country', 'level_1':'Data', 'level_2':'value', 0:'year'})
