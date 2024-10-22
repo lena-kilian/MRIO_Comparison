@@ -30,12 +30,13 @@ n = 10
 
 # plot params
 fs = 16
-pal = 'tab10'
+pal = 'colorblind'
 c_box = '#000000'
 c_vlines = '#6d6d6d'
-point_size = 20
+point_size = 30
 scatter_size = 100
 pal = 'tab10'
+marker_list = ["o", "X", "s", "P"]
 
 
 
@@ -133,9 +134,9 @@ for i in range(2):
     sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index()
     
     # plot    
-    #sns.stripplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=True, alpha=.2)
-    sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=0.6, linestyles='', errorbar='sd',
-                  markersize=point_size)
+    #sns.stripplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=True, alpha=.2, , palette=pal)
+    sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=0.6, linestyles='', errorbar=None,
+                  markersize=point_size, palette=pal, markers=marker_list)
     
     axs[i].set_title(item)
     axs[i].set_ylabel('')
@@ -165,7 +166,7 @@ for i in range(2):
     sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index()
     
     # plot    
-    sns.barplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2')
+    sns.barplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', palette=pal)
     
     axs[i].set_title(item)
     axs[i].set_ylabel('')
