@@ -65,7 +65,6 @@ sector_co2['cum_pct'] = sector_co2['mean_co2_pct'].cumsum()
 
 l = len(sector_co2[sector_co2['cum_pct'] < 100].index)
 top_sectors = sector_co2.iloc[:l+1, :].index.tolist()
-top_sectors.remove('Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use')
 
 summary = summary.sum(axis=0, level=['country', 'year'])
 

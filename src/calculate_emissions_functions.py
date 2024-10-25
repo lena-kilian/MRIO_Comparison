@@ -84,7 +84,6 @@ def indirect_footprint_SUT_exio(S, U, Y, stressor):
     
     for a in range(np.size(Y, 1)):
         footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
-        print(a)
     
     footprint = pd.DataFrame(footprint, index=y_cols, columns=su_idx)
     footprint = footprint[s_cols]

@@ -11,7 +11,6 @@ import pandas as pd
 from sys import platform
 import calculate_emissions_functions as cef
 import pickle
-import numpy as np
 import copy as cp
 
 
@@ -36,16 +35,45 @@ footprint = 'ghg'
 ############
 
 # get figaro footprint
-co2_figaro = {}
-for year in years:
-    co2_figaro[year] = pd.read_csv(mrio_filepath + 'Figaro/Ed_2024/Env_extensions/' + footprint + 'Footprint_23ed_' + str(year) + '.csv')
-    co2_figaro[year] = co2_figaro[year].set_index(['ref_area', 'industry', 'counterpart_area', 'sto'])[['obs_value']].unstack(['sto', 'counterpart_area'])\
-        .droplevel(axis=1, level=0).drop(np.nan, axis=1)
-    co2_figaro[year].index = [x[0] + '_' + x[1] for x in co2_figaro[year].index.tolist()]
-    co2_figaro[year].columns = [x[1] + '_' + str(x[0]) for x in co2_figaro[year].columns.tolist()]
 
-pickle.dump(co2_figaro, open(emissions_filepath + 'Figaro/Figaro_emissions_' + footprint + '_v' + version + '.p', 'wb'))
+co2_figaro = {}
+
+# make lookup
+lookup_fd = pd.read_excel(wd + 'ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name='final_demand') 
+lookup_fd = lookup_fd[['figaro_code', 'combined_name']].dropna(how='any').drop_duplicates()
+lookup_fd = dict(zip(lookup_fd['figaro_code'], lookup_fd['combined_name']))
+
+
+# get figaro footprint
+for year in years:
+
+    S = pd.read_csv(mrio_filepath + 'Figaro/Ed_2024/matrix_eu-ic-supply_24ed_' + str(year) + '.csv', index_col=0).T
+    S.columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in S.columns],  ['_'.join(x.split('_')[1:]) for x in S.columns]])
+    S.index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in S.index], ['_'.join(x.split('_')[1:]) for x in S.index]])
     
+    U_all = pd.read_csv(mrio_filepath + 'Figaro/Ed_2024/matrix_eu-ic-use_24ed_' + str(year) + '.csv', index_col=0)
+    U_all.columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in U_all.columns], ['_'.join(x.split('_')[1:]) for x in U_all.columns]])
+    U_all.index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in U_all.index], ['_'.join(x.split('_')[1:]) for x in U_all.index]])
+    
+    U = U_all.loc[S.columns, S.index]
+ 
+    y_cols = []
+    for item in list(lookup_fd.keys()):
+        if item in U_all.columns.levels[1]:
+            y_cols.append(item)
+            
+    Y = U_all.swaplevel(axis=1)[y_cols].swaplevel(axis=1).loc[S.columns,:]
+    
+    stressor = pd.read_csv(mrio_filepath + 'Figaro/Ed_2024/Env_extensions/' + footprint + 'Footprint_23ed_' + str(year) + '.csv')
+    stressor = stressor[['ref_area', 'industry', 'obs_value']].dropna(how='all').drop_duplicates().set_index(['ref_area', 'industry']).loc[S.index].T.sum(axis=1, level=[0,1])
+       
+    # calculate footprint
+    co2_figaro[year] = cef.indirect_footprint_SUT_exio(S, U, Y, stressor).T.sum(axis=0, level=[0, 1])
+
+pickle.dump(co2_figaro, open(emissions_filepath + 'Figaro/Figaro_emissions_' + footprint + '_v' + version + '_agg_all.p', 'wb'))
+
+print('Figaro Done')   
+ 
 ##########
 ## OECD ##
 ##########
