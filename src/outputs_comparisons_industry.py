@@ -10,6 +10,7 @@ from sys import platform
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.cm import get_cmap
 
 # set working directory
 # make different path depending on operating system
@@ -96,17 +97,24 @@ plt.show()
 
 
 # Plot Scatterplot
-fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(10, 10), sharex=True)#, sharey=True)
+fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
 for c in range(2):
     item = ['Total', 'Imports'][c]
     for r in range(len(data_comb)):
         plot_data = corr[item].loc[corr[item]['Data'] == data_comb[r]]
-        sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.025)
-        axs[r, c].set_title(data_comb[r])
-        axs[r, c].set_xlim(0, 1)
+        sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.05, color=get_cmap(pal)(c), alpha=0.5)
+        axs[r, c].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
+        #axs[r, c].set_xlim(0, 1)
+        #y_labels =[int(y) for y in axs[r, c].get_yticks()]
+        y_labels = [0, 10, 20, 30, 40]
+        #print(y_labels)
+        axs[r, c].set_yticklabels(y_labels, fontsize=fs); 
     axs[r, c].set_xlabel("Spearman's Rho")
+    x_labels = [round(x, 2) for x in axs[r, c].get_xticks()]
+    axs[r, c].set_xticklabels(x_labels, fontsize=fs); 
+    axs[0, c].set_title(item, fontsize=fs)
 fig.tight_layout()
-plt.savefig(plot_filepath + 'scatterplot_CO2_sector_corr_by_data_GHG.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'histplot_CO2_sector_corr_by_data_GHG.png', dpi=200, bbox_inches='tight')
 plt.show() 
 
 ####################

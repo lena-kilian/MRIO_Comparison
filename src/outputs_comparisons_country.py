@@ -25,7 +25,7 @@ emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 plot_filepath = outputs_filepath + 'plots/'
 
-order_var = 'gdp' # 'prop_order' 'openness'
+order_var = 'prop_imports' # 'gdp' # 'openness'
 same_direction_pct_cutoff = 1.5
 
 # import data
@@ -95,7 +95,7 @@ axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', 
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'scatterplot_overview_bycountry_GHG.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'scatterplot_overview_bycountry_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 
@@ -128,7 +128,7 @@ ax.axhline(0, c=c_vlines)
 plt.legend(bbox_to_anchor=(0.9,0.79), fontsize=fs) 
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_rmse_pct_GHG.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_rmse_pct_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show()
 '''
 
@@ -167,7 +167,7 @@ x_labels =[int(x) for x in axs[r].get_xticks()]
 axs[r].set_xticklabels(x_labels, fontsize=fs); 
 axs[r].set_xlabel("RMSE Pct.", fontsize=fs)
 fig.tight_layout()
-plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG_v2.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG_v2_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show() 
 '''
 
@@ -197,13 +197,13 @@ ax.axhline(0, c=c_vlines)
 plt.legend(bbox_to_anchor=(0.9,0.1), fontsize=fs) 
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_direction_GHG.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_direction_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show()
 '''
 
 # Histogram
 
-fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 8), sharex=True, sharey=True)
+fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
 for c in range(2):
     item = ['Total', 'Imports'][c]
     for r in range(len(data_comb)):
@@ -217,7 +217,7 @@ for c in range(2):
     axs[0, c].set_title(item, fontsize=fs)
     axs[r, c].set_xlabel("Annual Direction\nSimilarity (%)", fontsize=fs)
 fig.tight_layout()
-plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG_GHG.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG.png', dpi=200, bbox_inches='tight')
 plt.show() 
 
 
@@ -236,7 +236,7 @@ x_labels =[int(x) for x in axs[r].get_xticks()]
 axs[r].set_xticklabels(x_labels, fontsize=fs); 
 axs[r].set_xlabel("Annual Direction Similarity (%)", fontsize=fs)
 fig.tight_layout()
-plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG_GHG_v2.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG_GHG_v2_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show() 
 '''
 
@@ -265,7 +265,7 @@ for item in ['Total', 'Imports']:
     plt.xlabel('')
     
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'scatterplot_regresults_bycountry_' + item + '_GHG.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'scatterplot_regresults_bycountry_' + item + '_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
     plt.show()
 '''
 
@@ -290,8 +290,8 @@ for i in range(2):
     axs[i].tick_params(axis='y', labelsize=fs)
     axs[i].set_xlabel('', fontsize=fs)
     axs[i].set_ylabel('Average yearly\nchange (%)', fontsize=fs); 
-    axs[i].axhline(same_direction_pct_cutoff,  c=c_vlines, linestyle=':'); 
-    axs[i].axhline(same_direction_pct_cutoff *-1, c=c_vlines, linestyle=':'); 
+    axs[i].axhline(same_direction_pct_cutoff,  c='k', linestyle='--'); 
+    axs[i].axhline(same_direction_pct_cutoff *-1, c='k', linestyle='--'); 
     axs[i].axhline(0, c='k');
     for c in range(len(plot_data['country'].unique())-1):
         axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
@@ -300,7 +300,7 @@ axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', 
 axs[1].xaxis.set_ticks_position('top') # the rest is the same
 
 fig.tight_layout()
-plt.savefig(plot_filepath + 'scatterplot_overview_regresults_GHG.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'scatterplot_overview_regresults_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show()
 
 
@@ -320,6 +320,6 @@ for c in range(2):
         plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
         sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tCO2', hue='Datasets', legend=False)
         axs[r, c].set_title(country + ' - ' + item, fontsize=fs)
-plt.savefig(plot_filepath + 'Lineplot_CO2_all.png', dpi=200, bbox_inches='tight')
+plt.savefig(plot_filepath + 'Lineplot_CO2_all_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show()
 '''

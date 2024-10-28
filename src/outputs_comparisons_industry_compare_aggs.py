@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 import copy as cp
+import numpy as np
 
 # set working directory
 # make different path depending on operating system
@@ -42,12 +43,12 @@ marker_list = ["o", "X", "s", "P"]
 
 # Load Data
 summary_industry = {'original':pickle.load(open(outputs_filepath + 'summary_industry.p', 'rb')),
-                    'agg_construction':pickle.load(open(outputs_filepath + 'summary_industry_agg_construction.p', 'rb')),
+                    #'agg_construction':pickle.load(open(outputs_filepath + 'summary_industry_agg_construction.p', 'rb')),
                     'agg_all':pickle.load(open(outputs_filepath + 'summary_industry_agg_all.p', 'rb'))
                     }
 
 corr = {'original':pickle.load(open(outputs_filepath + 'corr_industry.p', 'rb')),
-        'agg_construction':pickle.load(open(outputs_filepath + 'corr_industry_agg_construction.p', 'rb')),
+        #'agg_construction':pickle.load(open(outputs_filepath + 'corr_industry_agg_construction.p', 'rb')),
         'agg_all':pickle.load(open(outputs_filepath + 'corr_industry_agg_all.p', 'rb'))
         }
 
@@ -158,6 +159,7 @@ for r in range(2):
 ## Compare by version ##
 ########################
 
+# industry
 order_full = summary_all.groupby(['industry' ,'country', 'type']).mean()[datasets].mean(1).sum(axis=0, level=[0, 2]).reset_index()
 l = len(summary_industry)
 
@@ -188,5 +190,54 @@ for c in range(2):
             
 fig.tight_layout()
 plt.savefig(plot_filepath + 'barplot_CO2_global_by_sector_compare_agg_versions.png', dpi=200, bbox_inches='tight')
+plt.show()
+
+
+# country
+
+
+
+sums = summary_all.groupby(['industry' ,'country', 'type', 'version']).mean()[datasets].sum(axis=0, level=[1, 2, 3]).stack().reset_index()
+# get mean emissions by sector
+
+for r in range(2):
+    item = ['Total', 'Imports'][r]
+    fig, axs = plt.subplots(figsize=(10, 10), ncols=4, sharey=True, sharex=True)
+    for c in range(4):
+        data = datasets[c]
+    
+        plot_data = sums.loc[(sums['level_3'] == data) & (sums['type'] == item)]
+        
+        sns.barplot(ax=axs[c], data=plot_data, y='country', x=0, hue='version', palette=pal)
+        axs[c].set_title(data)
+        axs[c].set_xlabel('tCO2e')
+        axs[c].set_ylabel('')
+        axs[c].set_xscale('log')
+            
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'barplot_CO2_global_by_country_compare_agg_versions_' + item + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
+
+
+compare = summary_all.groupby(['industry' ,'country', 'type', 'version']).mean()[datasets].sum(axis=0, level=[1, 2, 3]).unstack('version')
+for data in datasets:
+    compare[(data, 'compare')] = np.abs(compare[(data, 'original')] - compare[(data, 'agg_all')])/compare[[(data, 'original'), (data, 'agg_all')]].mean(1)
+
+compare = compare.swaplevel(axis=1)['compare'] * 100
+plot_data = compare.stack().reset_index()
+
+fig, axs = plt.subplots(figsize=(10, 5), nrows=2, sharey=True, sharex=True)
+for c in range(2):
+    item = ['Total', 'Imports'][c]
+    data = datasets[c]
+
+    temp = plot_data.loc[(plot_data['type'] == item)]
+    
+    sns.scatterplot(ax=axs[c], data=temp, x='country', y=0, hue='level_2', palette=pal)
+    axs[c].set_xlabel('Difference Agg (%)')
+    axs[c].set_ylabel('')
+plt.xticks(rotation=90)       
+fig.tight_layout()
+plt.savefig(plot_filepath + 'barplot_CO2_global_by_country_compare_agg_versions_diff.png', dpi=200, bbox_inches='tight')
 plt.show()
 
