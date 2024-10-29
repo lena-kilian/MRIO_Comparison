@@ -67,7 +67,7 @@ for c in range(2):
         sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.025)
         axs[r, c].set_title(data_comb[r])
         axs[r, c].set_xlim(0, 1)
-    axs[r, c].set_xlabel("Spearman's Rho")
+    axs[r, c].set_xlabel("Spearman's Rho", fontsize=fs)
 fig.tight_layout()
 plt.savefig(plot_filepath + 'histplot_CO2_sector_corr_by_data_GHG.png', dpi=200, bbox_inches='tight')
 plt.show() 
@@ -109,7 +109,7 @@ for c in range(2):
         y_labels = [0, 10, 20, 30, 40]
         #print(y_labels)
         axs[r, c].set_yticklabels(y_labels, fontsize=fs); 
-    axs[r, c].set_xlabel("Spearman's Rho")
+    axs[r, c].set_xlabel("Spearman's Rho", fontsize=fs)
     x_labels = [round(x, 2) for x in axs[r, c].get_xticks()]
     axs[r, c].set_xticklabels(x_labels, fontsize=fs); 
     axs[0, c].set_title(item, fontsize=fs)
@@ -139,12 +139,12 @@ for i in range(2):
     
     order_list = order.iloc[:n+1].index.tolist()
 
-    sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index()
+    sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
     
     # plot    
     #sns.stripplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=True, alpha=.2, , palette=pal)
-    sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=0.6, linestyles='', errorbar=None,
-                  markersize=point_size, palette=pal, markers=marker_list)
+    sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar=None,
+                  errwidth=0, markersize=point_size, palette=pal, markers=marker_list)
     
     axs[i].set_title(item)
     axs[i].set_ylabel('')

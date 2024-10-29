@@ -25,7 +25,7 @@ emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 plot_filepath = outputs_filepath + 'plots/'
 
-order_var = 'prop_imports' # 'gdp' # 'openness'
+order_var = 'gdp' # 'openness' # 'prop_imports' #
 same_direction_pct_cutoff = 1.5
 
 # import data
@@ -109,28 +109,6 @@ temp = rmse_pct['Imports'].set_index('country').stack().reset_index().rename(col
 temp['Type'] = 'Imports'
 
 plot_data = plot_data.append(temp)
-'''
-# Boxplot
-fig, ax = plt.subplots(figsize=(20, 5), sharex=True)
-
-sns.boxplot(ax=ax, data=plot_data, x='dataset', y='Value', hue='Type', showfliers=False, palette=pal)
-ax.set_xlabel('', fontsize=fs)
-ax.set_ylabel('RMSE Pct.', fontsize=fs)
-ax.tick_params(axis='y', labelsize=fs)
-#ax.set_yscale('log')
-  
-ax.set_xticklabels(ax.get_xticklabels(), fontsize=fs); 
-
-for c in range(len(plot_data['dataset'].unique())):
-    ax.axvline(c+0.5, c=c_vlines, linestyle=':')
-    
-ax.axhline(0, c=c_vlines)
-plt.legend(bbox_to_anchor=(0.9,0.79), fontsize=fs) 
-
-fig.tight_layout()
-plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_rmse_pct_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
-plt.show()
-'''
 
 # Histogram
 
@@ -151,26 +129,6 @@ fig.tight_layout()
 plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG.png', dpi=200, bbox_inches='tight')
 plt.show() 
 
-
-# Histogram
-'''
-fig, axs = plt.subplots(nrows=len(data_comb), figsize=(6, 10), sharex=True, sharey=True)
-for r in range(len(data_comb)):
-    temp = plot_data.loc[(plot_data['dataset'] == data_comb[r])]
-    temp.index=list(range(len(temp)))
-    sns.histplot(ax=axs[r], data=temp, x='Value', binwidth=10, hue='Type', palette=pal)
-    axs[r].set_title('', fontsize=fs)
-    axs[r].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
-    y_labels =[int(y) for y in axs[r].get_yticks()]
-    axs[r].set_yticklabels(y_labels, fontsize=fs); 
-x_labels =[int(x) for x in axs[r].get_xticks()]
-axs[r].set_xticklabels(x_labels, fontsize=fs); 
-axs[r].set_xlabel("RMSE Pct.", fontsize=fs)
-fig.tight_layout()
-plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG_v2_' + order_var + '.png', dpi=200, bbox_inches='tight')
-plt.show() 
-'''
-
 #################################
 ## Change in trend - Direction ##
 #################################
@@ -179,27 +137,6 @@ plot_data = direction['Total']; plot_data['Type'] = 'Total'
 temp = direction['Imports']; temp['Type'] = 'Imports'
 
 plot_data = plot_data.append(temp)
-'''
-fig, ax = plt.subplots(figsize=(20, 5), sharex=True)
-
-sns.boxplot(ax=ax, data=plot_data, x='dataset', y='pct_same', hue='Type', showfliers=False, palette=pal)
-ax.set_xlabel('', fontsize=fs)
-ax.set_ylabel('Annual direction similarity', fontsize=fs)
-ax.tick_params(axis='y', labelsize=fs)
-#ax.set_yscale('log')
-  
-ax.set_xticklabels(ax.get_xticklabels(), fontsize=fs); 
-
-for c in range(len(plot_data['dataset'].unique())):
-    ax.axvline(c+0.5, c=c_vlines, linestyle=':')
-    
-ax.axhline(0, c=c_vlines)
-plt.legend(bbox_to_anchor=(0.9,0.1), fontsize=fs) 
-
-fig.tight_layout()
-plt.savefig(plot_filepath + 'Boxplot_similarity_bydata_direction_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
-plt.show()
-'''
 
 # Histogram
 
@@ -221,54 +158,9 @@ plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydat
 plt.show() 
 
 
-# Histogram
-'''
-fig, axs = plt.subplots(nrows=len(data_comb), figsize=(5, 10), sharex=True)#, sharey=True)
-for r in range(len(data_comb)):
-    temp = plot_data.loc[(plot_data['dataset'] == data_comb[r])]
-    temp.index=list(range(len(temp)))
-    sns.histplot(ax=axs[r], data=temp, x='pct_same', binwidth=10, hue='Type', palette=pal)
-    axs[r].set_title('', fontsize=fs)
-    axs[r].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
-    y_labels =[int(y) for y in axs[r].get_yticks()]
-    axs[r].set_yticklabels(y_labels, fontsize=fs); 
-x_labels =[int(x) for x in axs[r].get_xticks()]
-axs[r].set_xticklabels(x_labels, fontsize=fs); 
-axs[r].set_xlabel("Annual Direction Similarity (%)", fontsize=fs)
-fig.tight_layout()
-plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG_GHG_v2_' + order_var + '.png', dpi=200, bbox_inches='tight')
-plt.show() 
-'''
-
 ###################################
 ## Regress footprints over years ##
 ###################################
-'''
-for item in ['Total', 'Imports']:
-    plot_data = reg_results[item].drop('reg_validation_pct', axis=1)
-    plot_data.loc[(plot_data['max'] <= same_direction_pct_cutoff) & (plot_data['min'] >= same_direction_pct_cutoff * -1), 'Same direction'] = True
-    plot_data = plot_data.loc[country_order].set_index('Same direction', append=True).drop(['max', 'min'], axis=1)\
-        .stack().reset_index().rename(columns={0:'Average pct change', 'level_2':'Data'})
-    plot_data['Same direction'] = pd.Categorical(plot_data['Same direction'], categories=[True, False], ordered=True)
-    plot_data['\nData'] = plot_data['Data']
-    
-    fig, ax = plt.subplots(figsize=(15, 5))
-    sns.scatterplot(ax=ax, data=plot_data, x='country', y='Average pct change', style='\nData', hue='Same direction', s=scatter_size, palette=pal, markers=marker_list)
-    plt.ylabel('Average yearly change (%)', fontsize=fs); 
-    plt.xticks(rotation=90, fontsize=fs); 
-    plt.yticks(fontsize=fs)
-    plt.title(item, fontsize=fs); 
-    plt.axhline(same_direction_pct_cutoff,  c=c_vlines, linestyle=':'); 
-    plt.axhline(same_direction_pct_cutoff *-1, c=c_vlines, linestyle=':'); 
-    plt.axhline(0, c='k');
-    plt.legend(bbox_to_anchor=(1,1), fontsize=fs, markerscale=2)    
-    plt.xlabel('')
-    
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'scatterplot_regresults_bycountry_' + item + '_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
-    plt.show()
-'''
-
 
 fig, axs = plt.subplots(nrows=2, figsize=(15, 8), sharex=True)
 for r in range(2):
