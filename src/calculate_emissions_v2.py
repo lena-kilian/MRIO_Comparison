@@ -48,7 +48,6 @@ lookup_sectors = dict(zip(lookup_sectors['exio'], lookup_sectors['combined_name'
 lookup_fd = lookup['final_demand'][['exio', 'combined_name']].dropna(how='any').drop_duplicates()
 lookup_fd = dict(zip(lookup_fd['exio'], lookup_fd['combined_name']))
 
-
 co2_exio = {}
 for year in years:
     
@@ -66,15 +65,19 @@ for year in years:
     S = exio_data['S']; U = exio_data['U']; Y = exio_data['Y']; stressor = exio_data['co2']
     
     # aggregate industries and products
-    S = S.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_sectors, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    U = U.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_sectors, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    Y = Y.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    stressor = stressor.rename(index=lookup_country).rename(index=lookup_sectors).sum(axis=0, level=[0,1]).iloc[:,0]
+    U = U.loc[S.columns, S.index]
+    Y = Y.loc[S.columns, :]
+    stressor = stressor.loc[S.index, stressor_var]
     
-    co2_exio[year] = cef.indirect_footprint_SUT(S, U, Y, stressor).T.sum(axis=0, level=[0, 1]) / 1000000
-    #print(year)
+    # calculate footprint
+    emissions = cef.indirect_footprint_SUT(S, U, Y, stressor).T.sum(axis=0, level=[0, 1]) / 1000000
+    # aggregate industries and products
+    emissions = emissions.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
+    
+    # save
+    co2_exio[year] = emissions
 
-pickle.dump(co2_exio, open(emissions_filepath + 'Exiobase/Exiobase_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
+pickle.dump(co2_exio, open(emissions_filepath + 'Exiobase/Exiobase_emissions_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
 
 print('Exiobase Done')
 
@@ -97,7 +100,6 @@ lookup_sectors = dict(zip(lookup_sectors['figaro_code'], lookup_sectors['combine
 lookup_fd = lookup['final_demand'][['figaro_code', 'combined_name']].dropna(how='any').drop_duplicates()
 lookup_fd = dict(zip(lookup_fd['figaro_code'], lookup_fd['combined_name']))
 
-
 # get figaro footprint
 for year in years:
 
@@ -119,18 +121,17 @@ for year in years:
     Y = U_all.swaplevel(axis=1)[y_cols].swaplevel(axis=1).loc[S.columns,:]
     
     stressor = pd.read_csv(mrio_filepath + 'Figaro/Ed_2024/Env_extensions/' + footprint + 'Footprint_23ed_' + str(year) + '.csv')
-    stressor = stressor[['ref_area', 'industry', 'obs_value']].dropna(how='all').drop_duplicates().set_index(['ref_area', 'industry']).loc[S.index].T.sum(axis=1, level=[0,1])
-    
-    # aggregate industries and products
-    S = S.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_sectors, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    U = U.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_sectors, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    Y = Y.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    stressor = stressor.rename(columns=lookup_country).rename(columns=lookup_sectors).sum(axis=1, level=[0,1])
+    stressor = stressor.groupby(['ref_area', 'industry'])['obs_value'].sum().loc[S.index].T
     
     # calculate footprint
-    co2_figaro[year] = cef.indirect_footprint_SUT(S, U, Y, stressor).T.sum(axis=0, level=[0, 1])
+    emissions = cef.indirect_footprint_SUT(S, U, Y, stressor).T
+    # aggregate industries and products
+    emissions = emissions.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
+    
+    # save
+    co2_figaro[year] = emissions
 
-pickle.dump(co2_figaro, open(emissions_filepath + 'Figaro/Figaro_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
+pickle.dump(co2_figaro, open(emissions_filepath + 'Figaro/Figaro_emissions_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
 
 print('Figaro Done')
 
@@ -138,6 +139,8 @@ print('Figaro Done')
 ##########
 ## OECD ##
 ##########
+
+co2_oecd = {}
 
 oecd_data = {}
 
@@ -180,9 +183,9 @@ for year in years:
     Y_cols['Ind'] = [str(x).split('_')[-1] for x in Y_cols['Sector code']]
     Y_cols = Y_cols.loc[Y_cols['Ind'].isin(oecd_lookup_fd) == True]['Sector code']
 
-    oecd_data[year][footprint] = temp.loc[(temp['TIME_PERIOD'] == year) &
-                                      (temp['REF_AREA'].isin(oecd_lookup_country['Code']) == True) &
-                                      (temp['ACTIVITY'].isin(oecd_lookup_industry['Code.1']) == True)]
+    oecd_data[year][footprint] = temp.loc[(temp['TIME_PERIOD'] == year) & 
+                                          (temp['REF_AREA'].isin(oecd_lookup_country['Code']) == True) &
+                                          (temp['ACTIVITY'].isin(oecd_lookup_industry['Code.1']) == True)]
     oecd_data[year][footprint]['Sector code'] = oecd_data[year][footprint]['REF_AREA'] + '_' + oecd_data[year][footprint]['ACTIVITY']
     oecd_data[year][footprint] = oecd_data[year][footprint].set_index(['Sector code'])[['OBS_VALUE']]
     oecd_data[year][footprint] = oecd_data[year][footprint]*1000 # adjust unit to match Figaro
@@ -191,26 +194,20 @@ for year in years:
     oecd_data[year]['Z'] = icio.loc[Z_rows, Z_cols]
     oecd_data[year]['Y'] = icio.loc[Z_rows, Y_cols]
     
-    # aggregate industries and products
-    oecd_data[year]['Z'].index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in oecd_data[year]['Z'].index], ['_'.join(x.split('_')[1:]) for x in oecd_data[year]['Z'].index]])
-    oecd_data[year]['Z'].columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in oecd_data[year]['Z'].columns], ['_'.join(x.split('_')[1:]) for x in oecd_data[year]['Z'].columns]])
-    oecd_data[year]['Z'] = oecd_data[year]['Z'].rename(columns=lookup_country, index=lookup_country)\
-        .rename(columns=lookup_sectors, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-        
-    oecd_data[year]['Y'].index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in oecd_data[year]['Y'].index], ['_'.join(x.split('_')[1:]) for x in oecd_data[year]['Y'].index]])
-    oecd_data[year]['Y'].columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in oecd_data[year]['Y'].columns], ['_'.join(x.split('_')[1:]) for x in oecd_data[year]['Y'].columns]])
-    oecd_data[year]['Y'] = oecd_data[year]['Y'].rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    
-    oecd_data[year][footprint].index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in oecd_data[year][footprint].index], ['_'.join(x.split('_')[1:]) for x in oecd_data[year][footprint].index]])
-    oecd_data[year][footprint] = oecd_data[year][footprint].rename(index=lookup_country).rename(index=lookup_sectors).sum(axis=0, level=[0,1])
-
-# calculate oecd footprint
-co2_oecd = {}
-for year in years:
     Z = oecd_data[year]['Z']; Y = oecd_data[year]['Y']; stressor = oecd_data[year][footprint]
-    co2_oecd[year] = cef.indirect_footprint_Z(Z, Y, stressor)
     
-pickle.dump(co2_oecd, open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
+    # calculate footprint
+    emissions = cef.indirect_footprint_Z(Z, Y, stressor)
+    emissions.index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in emissions.index], ['_'.join(x.split('_')[1:]) for x in emissions.index]])
+    emissions.columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in emissions.columns], ['_'.join(x.split('_')[1:]) for x in emissions.columns]])
+   
+    # aggregate industries and products
+    emissions = emissions.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
+    
+    # save
+    co2_oecd[year] = emissions
+    
+pickle.dump(co2_oecd, open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
 
 print('ICIO Done')
 
@@ -273,17 +270,17 @@ for year in years:
         co2_filepath=gloria_filepath+gloria_version+'Env_extensions/'+co2_fname
 
     S, U, Y, stressor = cef_g.read_data_new(z_filepath, y_filepath, co2_filepath, iix, pix, industry_idx, product_idx, y_cols, stressor_row)
-    # aggregate industries and products
-    S = S.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_sectors, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    U = U.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_sectors, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    Y = Y.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    stressor = stressor.rename(columns=lookup_country).rename(columns=lookup_sectors).sum(axis=1, level=[0,1])
 
-    co2_gloria[year] = cef_g.indirect_footprint_SUT_new(S, U, Y, stressor).T
+    emissions = cef_g.indirect_footprint_SUT_new(S, U, Y, stressor).T
     
+    # aggregate industries and products
+    emissions = emissions.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1]).T
+    
+    # save
+    co2_gloria[year] = emissions
     print('Gloria calculated for ' + str(year))
 
-pickle.dump(co2_gloria, open(emissions_filepath + 'Gloria/Gloria_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
+pickle.dump(co2_gloria, open(emissions_filepath + 'Gloria/Gloria_emissions_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
 
 print('Gloria Done')
 
@@ -297,7 +294,7 @@ for year in years:
           'Figaro: ', co2_figaro[year].sum().sum(), '\n',
           'ICIO: ', co2_oecd[year].sum().sum(), '\n',
           'Gloria: ', co2_gloria[year].sum().sum(), '\n')
-    
+
 ##############
 ## Save all ##
 ##############
@@ -307,4 +304,6 @@ co2_all = {'exio':co2_exio,
            'gloria':co2_gloria,
            'oecd':co2_oecd}
 
-pickle.dump(co2_all, open(emissions_filepath + 'Emissions_aggregated_all_agg_before.p', 'wb'))
+pickle.dump(co2_all, open(emissions_filepath + 'Emissions_aggregated_all_agg_after.p', 'wb'))
+
+

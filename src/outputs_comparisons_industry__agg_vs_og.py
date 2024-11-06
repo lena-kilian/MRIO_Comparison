@@ -94,6 +94,7 @@ for item in ['Total', 'Imports']:
 
 corr_agg = pd.DataFrame()
 sums_agg = pd.DataFrame()
+sums_detail = {}
 fig, axs = plt.subplots(figsize=(8, 4), ncols=2, sharey=True, sharex=True)
 for i in range(2):
     item = ['Total', 'Imports'][i]
@@ -126,10 +127,15 @@ for i in range(2):
     corr_agg = corr_agg.append(temp)
     
     # sums
-    temp = plot_data.set_index(['industry', 'country', 'year', 'Data']).mean(axis=0, level=['industry', 'country', 'Data'])\
-        .sum(axis=0, level=['Data']).reset_index()
+    temp = plot_data.set_index(['industry', 'country', 'year', 'Data']).sum(axis=0, level=['year', 'Data']).mean(axis=0, level=['Data']).reset_index()
     temp['sum'] = 'all'
     temp['level'] = 'all'
+    temp['Type'] = item
+    sums_agg = sums_agg.append(temp)
+    
+    temp = plot_data.set_index(['industry', 'country', 'year', 'Data']).sum(axis=0, level=['year', 'country', 'Data'])\
+        .mean(axis=0, level=['year', 'Data']).reset_index().rename(columns={'year':'level'})
+    temp['sum'] = 'year'
     temp['Type'] = item
     sums_agg = sums_agg.append(temp)
     
@@ -144,6 +150,16 @@ for i in range(2):
     temp['sum'] = 'country'
     temp['Type'] = item
     sums_agg = sums_agg.append(temp)
+    
+    # sums detail
+    temp = plot_data.groupby(['country', 'year', 'Data']).sum()
+    temp = plot_data.set_index(['country', 'year', 'Data']).join(temp, rsuffix='_sum').reset_index()
+    temp['diff'] = np.abs(temp['Aggregation after Footprint Calculation'] - temp['Aggregation before Footprint Calculation'])
+    temp['diff pct'] =  temp['diff']/temp[['Aggregation after Footprint Calculation', 'Aggregation before Footprint Calculation']].mean(1) * 100
+    temp['pct_sum_BEFORE'] = temp['Aggregation before Footprint Calculation'] / temp['Aggregation before Footprint Calculation_sum'] * 100
+    temp['pct_sum_AFTER'] = temp['Aggregation after Footprint Calculation'] / temp['Aggregation after Footprint Calculation_sum'] * 100
+    temp = temp.loc[(temp['diff pct'] > 10) & ((temp['pct_sum_BEFORE'] > 10) | (temp['pct_sum_AFTER'] > 10))]
+    sums_detail[item] = temp
   
     #plot
     sns.scatterplot(ax=axs[i], data=plot_data, x='Aggregation after Footprint Calculation', y='Aggregation before Footprint Calculation', 

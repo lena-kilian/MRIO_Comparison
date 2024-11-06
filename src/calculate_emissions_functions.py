@@ -55,14 +55,11 @@ def make_Z_from_S_U(S, U):
     return Z
 
 
-def indirect_footprint_SUT_exio(S, U, Y, stressor):
+def indirect_footprint_SUT(S, U, Y, stressor):
     # make column names
     su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.index.tolist()] + [x[0] for x in U.index.tolist()],
                                         [x[1] for x in S.index.tolist()] + [x[1] for x in U.index.tolist()]])
-    
-    su_col = pd.MultiIndex.from_arrays([[x[0] for x in S.columns.tolist()] + [x[0] for x in U.columns.tolist()],
-                                        [x[1] for x in S.columns.tolist()] + [x[1] for x in U.columns.tolist()]])
-    
+
     
     s_cols = S.columns.tolist()
     y_cols = Y.columns
