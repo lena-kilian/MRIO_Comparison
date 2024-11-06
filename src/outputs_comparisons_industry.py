@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.cm import get_cmap
+import copy as cp
 
 # set working directory
 # make different path depending on operating system
@@ -40,8 +41,6 @@ pal = 'tab10'
 marker_list = ["o", "X", "s", "P"]
 
 
-
-
 # Load Data
 summary_industry = pickle.load(open(outputs_filepath + 'summary_industry.p', 'rb'))
 corr = pickle.load(open(outputs_filepath + 'corr_industry.p', 'rb'))
@@ -65,8 +64,11 @@ for c in range(2):
     for r in range(len(data_comb)):
         plot_data = corr[item].loc[corr[item]['Data'] == data_comb[r]]
         sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.025)
+        axs[r, c].axvline(plot_data.median().values, c='k', linestyle=':', linewidth=2)
         axs[r, c].set_title(data_comb[r])
         axs[r, c].set_xlim(0, 1)
+        
+        print(item, data_comb[r], plot_data.median().values)
     axs[r, c].set_xlabel("Spearman's Rho", fontsize=fs)
 fig.tight_layout()
 plt.savefig(plot_filepath + 'histplot_CO2_sector_corr_by_data_GHG.png', dpi=200, bbox_inches='tight')
@@ -103,6 +105,7 @@ for c in range(2):
     for r in range(len(data_comb)):
         plot_data = corr[item].loc[corr[item]['Data'] == data_comb[r]]
         sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.05, color=get_cmap(pal)(c), alpha=0.5)
+        axs[r, c].axvline(plot_data.median().values, c='k', linestyle=':', linewidth=2)
         axs[r, c].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
         #axs[r, c].set_xlim(0, 1)
         #y_labels =[int(y) for y in axs[r, c].get_yticks()]
@@ -148,7 +151,7 @@ for i in range(2):
     
     axs[i].set_title(item)
     axs[i].set_ylabel('')
-    axs[i].set_xlabel('tCO2e')
+    axs[i].set_xlabel('ktCO\N{SUBSCRIPT TWO}e')
     axs[i].set_xscale('log')
     for j in range(n+1):
         axs[i].axhline(0.5+j, c='k', linestyle=':')
@@ -178,7 +181,7 @@ for i in range(2):
     
     axs[i].set_title(item)
     axs[i].set_ylabel('')
-    axs[i].set_xlabel('tCO2e')
+    axs[i].set_xlabel('ktCO\N{SUBSCRIPT TWO}e')
     axs[i].set_xscale('log')
     for j in range(n+1):
         axs[i].axhline(0.5+j, c='k', linestyle=':')
@@ -186,3 +189,78 @@ for i in range(2):
 fig.tight_layout()
 plt.savefig(plot_filepath + 'barplot_CO2_global_by_sector_GHG.png', dpi=200, bbox_inches='tight')
 plt.show()
+
+
+# industry means
+industry_order = pd.DataFrame()
+industry_prop = pd.DataFrame()
+industry_global = pd.DataFrame()
+for item in ['Total', 'Imports']:
+    temp = summary_industry[item].mean(axis=0, level=[0, 1]).unstack('country')
+    
+    # order
+    temp2 = cp.copy(temp)
+    for col in temp2.columns.tolist():
+        temp2 = temp2.sort_values(col, ascending=False)
+        temp2[col] = list(range(len(temp2)))
+    temp2['Data'] = item
+    industry_order = industry_order.append(temp2.set_index('Data', append=True).stack(level=1).reset_index())
+    
+    # prop
+    temp2 = temp.apply(lambda x: x/x.sum() * 100).stack(level=1).fillna(0)
+    temp2['Data'] = item
+    industry_prop = industry_prop.append(temp2.reset_index())
+    
+    # global
+    temp2 = temp.sum(axis=1, level=0)
+    temp2.columns = pd.MultiIndex.from_arrays([['GHG'] * len(temp2.columns), temp2.columns.tolist()])
+    for col in temp2.columns.levels[1].tolist():
+        temp2 = temp2.sort_values(('GHG', col), ascending=False)
+        temp2[('order', col)] = list(range(len(temp2)))
+    temp2['Data'] = item
+    industry_global = industry_global.append(temp2.reset_index())
+    
+    
+industry_global_summary = industry_global.set_index(['industry', 'Data'])['GHG'].unstack().fillna(0).mean(axis=1, level=1)
+industry_global_summary2 = industry_global.set_index(['industry', 'Data'])['GHG'].unstack().fillna(0).swaplevel(axis=1)
+industry_global_summary2[('Total', 'aaa_mean')] = industry_global_summary2['Total'].mean(1)
+industry_global_summary2[('Imports', 'aaa_mean')] = industry_global_summary2['Imports'].mean(1)
+
+industry_global_summary2 = industry_global_summary2.reindex(sorted(industry_global_summary2.columns), axis=1)
+industry_global_summary_prop = industry_global_summary2.apply(lambda x: x/x.sum()*100)
+
+industry_order_top = pd.DataFrame(industry_order.set_index(['industry', 'country', 'Data']).stack())
+industry_order_top = industry_order_top.loc[industry_order_top[0] < n]
+industry_order_top[0] = 1
+industry_order_top = industry_order_top.unstack(level=3).fillna(0).droplevel(axis=1, level=0)
+industry_order_top['Count'] = industry_order_top.sum(1)
+
+industry_order_top_total = cp.copy(industry_order_top)
+for d in datasets:
+    industry_order_top_total[d] = industry_order_top_total[d].map({0:'', 1:d + ', '})
+industry_order_top_total['Datasets'] = industry_order_top_total['Count'].astype(str) + ': ' + industry_order_top_total[datasets].sum(1).str[:-2]
+industry_order_top_total = industry_order_top_total[['Datasets']].unstack(level=[2,1]).droplevel(axis=1, level=0)
+
+industry_order_top_imports = industry_order_top_total['Imports']
+industry_order_top_total = industry_order_top_total['Total']
+
+
+industry_order_top_total = industry_order_top_total.loc[industry_order_top_total['Data'] == 'Total'].set_index(['Data', 'industry', 'country'])
+
+industry_order_top_summary = pd.DataFrame(industry_order.set_index(['industry', 'country', 'Data']).stack())
+industry_order_top_summary = industry_order_top_summary.loc[industry_order_top_summary[0] < n]
+industry_order_top_summary[0] = 1
+industry_order_top_summary = industry_order_top_summary.sum(axis=0, level=[0, 2, 3]).unstack(level=[1, 2]).droplevel(axis=1, level=0).fillna(0)
+industry_order_top_summary[('Total', 'summary')] = industry_order_top_summary['Total'].mean(1)
+industry_order_top_summary[('Imports', 'summary')] = industry_order_top_summary['Imports'].mean(1)
+
+industry_prop_top = pd.DataFrame(industry_prop.set_index(['industry', 'country', 'Data']).stack())
+industry_prop_top = industry_prop_top.loc[industry_prop_top[0] >= 10].unstack(level=[2, 3]).droplevel(axis=1, level=0).fillna(0)
+industry_prop_top[('summary', 'Total_mean')] = industry_prop_top['Total'].mean(1)
+industry_prop_top[('summary', 'Imports_mean')] = industry_prop_top['Imports'].mean(1)   
+industry_prop_top[('summary', 'Total_sd')] = industry_prop_top['Total'].std(1)
+industry_prop_top[('summary', 'Imports_sd')] = industry_prop_top['Imports'].std(1)   
+#industry_prop_top = industry_prop_top['summary']
+
+
+

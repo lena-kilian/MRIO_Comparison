@@ -109,8 +109,22 @@ openness = pd.read_excel(data_filepath + 'lookups/lookup_trade_openness.xlsx', s
 openness = openness.loc[openness['Countries'] != 'ROW Mean'].sort_values('Trade_openness_2018', ascending=False)\
     .set_index('combined_name').rename(index=country_dict).index.tolist()
 
+# GHG / capita 
+ghg_cap_total = ['USA', 'Australia', 'Luxembourg', 'Ireland', 'Canada', 'Norway', 'South Korea', 'Switzerland', 
+                 'Finland', 'Japan', 'Denmark', 'Estonia', 'Belgium', 'Netherlands', 'Germany', 'Austria', 'Czechia', 
+                 'Greece', 'Sweden', 'Malta', 'Russia', 'UK', 'Slovenia', 'Slovakia', 'Cyprus', 'China', 'Poland', 
+                 'France', 'Lithuania', 'Italy', 'Latvia', 'Turkey', 'Spain', 'Portugal', 'South Africa', 'Croatia', 
+                 'Hungary', 'Bulgaria', 'Romania', 'Mexico', 'Brazil', 'Indonesia', 'RoW', 'India']
+
+ghg_cap_imports = ['Luxembourg', 'Ireland', 'Switzerland', 'Norway', 'Belgium', 'Malta', 'Netherlands', 'Denmark', 
+                   'Austria', 'Canada', 'Australia', 'Germany', 'Slovenia', 'Sweden', 'Finland', 'South Korea', 
+                   'Lithuania', 'Estonia', 'Slovakia', 'Cyprus', 'UK', 'USA', 'France', 'Latvia', 'Japan', 'Greece', 
+                   'Czechia', 'Italy', 'Spain', 'Croatia', 'Portugal', 'Hungary', 'Bulgaria', 'Poland', 'Romania', 
+                   'Mexico', 'Turkey', 'Russia', 'South Africa', 'China', 'Brazil', 'RoW', 'Indonesia', 'India']
+
+
 # Combine and save
-country_order = {'gdp':gdp, 'prop_imports':prop_order, 'openness':openness}
+country_order = {'gdp':gdp, 'prop_imports':prop_order, 'openness':openness, 'ghg_cap_total':ghg_cap_total, 'ghg_cap_imports':ghg_cap_imports}
 pickle.dump(country_order, open(outputs_filepath + 'country_order.p', 'wb'))
 
 ###################################
@@ -270,7 +284,7 @@ for item in ['Total', 'Imports']:
     reg_fit.to_csv(outputs_filepath + 'regression_country_linieraty_AIC_' + item + '.csv')
     
 
-regression_results = {}
+regression_results = {}; regression_validation = {}
 for item in ['Total', 'Imports']:
     reg_check = pd.DataFrame()
     # Sense check with individual years removed
@@ -299,6 +313,8 @@ for item in ['Total', 'Imports']:
                 
                 reg_check = reg_check.append(new)
     
+    regression_validation[item] = reg_check
+    
     reg_check2 = reg_check.groupby(['country', 'year']).describe()['coef'][['min', 'max']]
     reg_check2['Same direction'] = 1
     reg_check2.loc[(reg_check2['max'] > 0) & (reg_check2['min'] < 0), 'Same direction'] = 0
@@ -321,3 +337,4 @@ for item in ['Total', 'Imports']:
 
 # save
 pickle.dump(regression_results, open(outputs_filepath + 'regression_country.p', 'wb'))
+pickle.dump(regression_validation, open(outputs_filepath + 'regression_validation.p', 'wb'))

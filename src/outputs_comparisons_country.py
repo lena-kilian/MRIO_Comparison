@@ -25,7 +25,7 @@ emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 plot_filepath = outputs_filepath + 'plots/'
 
-order_var = 'gdp' # 'openness' # 'prop_imports' #
+order_var = 'prop_imports' # 'gdp' # 'openness' # 'prop_imports' # 'ghg_cap_total' # 'ghg_cap_imports'
 same_direction_pct_cutoff = 1.5
 
 # import data
@@ -34,6 +34,9 @@ mean_co2 = pickle.load(open(outputs_filepath + 'mean_co2_country.p', 'rb'))
 rmse_pct = pickle.load(open(outputs_filepath + 'rmse_pct_country.p', 'rb'))
 direction = pickle.load(open(outputs_filepath + 'direction_annual_country.p', 'rb'))
 reg_results = pickle.load(open(outputs_filepath + 'regression_country.p', 'rb'))
+
+reg_validation = pickle.load(open(outputs_filepath + 'regression_validation.p', 'rb'))
+reg_fit = {item:pd.read_csv(outputs_filepath + 'regression_country_linieraty_AIC_' + item + '.csv') for item in ['Total', 'Imports']}
 
 country_order = pickle.load(open(outputs_filepath + 'country_order.p', 'rb'))[order_var]
 datasets = summary_co2['Total'].columns.tolist(); datasets.sort()
@@ -58,6 +61,10 @@ marker_list = ["o", "X", "s", "P"]
 ## Total & Pct imported ##
 ##########################
 
+# global imports
+percent_im_global = summary_co2['Imports'].sum(axis=0, level=1).mean(axis=0) / summary_co2['Total'].sum(axis=0, level=1).mean(axis=0) * 100
+
+# country imports
 percent_im = pd.DataFrame((summary_co2['Imports'].mean(axis=0, level=0) / summary_co2['Total'].mean(axis=0, level=0) * 100)\
                           .stack()).reset_index().rename(columns={'level_1':'dataset', 0:'pct_im'})
 plot_data = mean_co2['Total'].stack().reset_index().rename(columns={'level_1':'dataset', 0:'mean_co2'})\
@@ -74,7 +81,7 @@ plot_data = plot_data.sort_values(['country_cat', 'dataset_cat'])
 fig, axs = plt.subplots(nrows=2, figsize=(15, 7.5), sharex=True)
 
 sns.scatterplot(ax=axs[0], data=plot_data, x='country', y='mean_co2', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
-axs[0].set_ylabel('Footprint (CO2)', fontsize=fs); 
+axs[0].set_ylabel('Footprint (ktCO\N{SUBSCRIPT TWO}e)', fontsize=fs); 
 axs[0].set_yscale('log')
 
 sns.scatterplot(ax=axs[1], data=plot_data, x='country', y='pct_im', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
@@ -119,12 +126,13 @@ for c in range(2):
         temp = plot_data.loc[(plot_data['Type'] == item) & (plot_data['dataset'] == data_comb[r])]
         sns.histplot(ax=axs[r, c], data=temp, x='Value', binwidth=10, color=get_cmap(pal)(c), alpha=0.5)
         axs[r, c].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
+        axs[r, c].axvline(temp.median().values, c='k', linestyle=':', linewidth=2)
         y_labels =[int(y) for y in axs[r, c].get_yticks()]
         axs[r, 0].set_yticklabels(y_labels, fontsize=fs); 
     x_labels = [int(x) for x in axs[r, c].get_xticks()]
     axs[r, c].set_xticklabels(x_labels, fontsize=fs); 
     axs[0, c].set_title(item, fontsize=fs)
-    axs[r, c].set_xlabel("RMSE Pct.", fontsize=fs)
+    axs[r, c].set_xlabel("NRMSE (%)\n", fontsize=fs)
 fig.tight_layout()
 plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG.png', dpi=200, bbox_inches='tight')
 plt.show() 
@@ -147,6 +155,7 @@ for c in range(2):
         temp = plot_data.loc[(plot_data['Type'] == item) & (plot_data['dataset'] == data_comb[r])]
         sns.histplot(ax=axs[r, c], data=temp, x='pct_same', binwidth=10, color=get_cmap(pal)(c), alpha=0.5)
         axs[r, c].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
+        axs[r, c].axvline(temp.median()['pct_same'], c='k', linestyle=':', linewidth=2)
         y_labels =[int(y) for y in axs[r, c].get_yticks()]
         axs[r, 0].set_yticklabels(y_labels, fontsize=fs); 
     x_labels = [int(x) for x in axs[r, c].get_xticks()]
@@ -215,3 +224,33 @@ for c in range(2):
 plt.savefig(plot_filepath + 'Lineplot_CO2_all_' + order_var + '.png', dpi=200, bbox_inches='tight')
 plt.show()
 '''
+
+
+####################
+## Regression Fit ##
+####################
+
+reg_aic = pd.DataFrame()
+for item in ['Total', 'Imports']:
+    for ds in datasets:
+        temp = reg_fit[item].loc[reg_fit[item]['ds'] == ds]
+        temp = temp.rename(columns={'aic1':'Linear', 'aic2':'Quadratic', 'aic3':'Cubic'})\
+            .set_index(['country', 'ds'])[['Linear', 'Quadratic', 'Cubic']].stack().reset_index()\
+                .rename(columns={'level_2':'Model fit', 0:'AIC', 'ds':'Data'})
+        temp['Type'] = item
+        reg_aic = reg_aic.append(temp)  
+reg_aic = reg_aic.set_index(['country', 'Data', 'Model fit', 'Type']).unstack(['Data', 'Model fit'])
+
+##################################
+## Regression Fit Years removed ##
+##################################
+
+reg_val = pd.DataFrame()
+for item in ['Total', 'Imports']:
+    temp = reg_validation[item].loc[reg_validation[item]['year'] != 0]
+    temp = temp.groupby(['ds', 'country'])['coef'].describe()[['mean', 'std']]
+    temp = temp.join(reg_validation[item].loc[reg_validation[item]['year'] == 0].set_index(['ds', 'country'])[['coef']])
+    temp = temp[['coef', 'mean']].unstack('ds').swaplevel(axis=1) #  'std'
+    temp['Type'] = item
+    reg_val = reg_val.append(temp.set_index('Type', append=True))
+reg_val = reg_val.reindex(sorted(reg_val.columns), axis=1)

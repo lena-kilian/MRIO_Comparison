@@ -131,16 +131,16 @@ for i in range(2):
     
     order_list = order.iloc[:n+1].index.tolist()
 
-    sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index()
+    sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
     
     # plot    
     #sns.stripplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=True, alpha=.2, , palette=pal)
-    sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=0.6, linestyles='', errorbar=None,
-                  markersize=point_size, palette=pal, markers=marker_list)
+    sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar=None,
+                  errwidth=0, markersize=point_size, palette=pal, markers=marker_list)
     
     axs[i].set_title(item)
     axs[i].set_ylabel('')
-    axs[i].set_xlabel('tCO2e')
+    axs[i].set_xlabel('ktCO2e')
     axs[i].set_xscale('log')
     for j in range(n+1):
         axs[i].axhline(0.5+j, c='k', linestyle=':')
@@ -170,7 +170,7 @@ for i in range(2):
     
     axs[i].set_title(item)
     axs[i].set_ylabel('')
-    axs[i].set_xlabel('tCO2e')
+    axs[i].set_xlabel('ktCO2e')
     axs[i].set_xscale('log')
     for j in range(n+1):
         axs[i].axhline(0.5+j, c='k', linestyle=':')
