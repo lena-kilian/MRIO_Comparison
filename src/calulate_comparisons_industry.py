@@ -19,6 +19,8 @@ else:
 # define params
 corr_method = 'spearman' # 'pearson
 
+agg_vars = ['agg_after', 'agg_before']
+
 # define filepaths
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
@@ -71,7 +73,7 @@ ind_dict = {'Electricity, gas, steam and air conditioning supply':'Electricity &
 ## Run Analysis ##
 ##################
 
-for agg_var in ['agg_after', 'agg_before']:
+for agg_var in agg_vars:
     
     # load data
     co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all_' + agg_var + '.p', 'rb'))

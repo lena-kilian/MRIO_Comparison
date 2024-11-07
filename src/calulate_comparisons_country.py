@@ -19,6 +19,8 @@ if platform[:3] == 'win':
     wd = 'O://'
 else:
     wd = r'/Volumes/a72/' 
+    
+agg_vars = ['agg_after', 'agg_before']
 
 # define filepaths
 data_filepath = wd + 'ESCoE_Project/data/'
@@ -32,8 +34,7 @@ data_dict = {'oecd':'ICIO', 'exio':'Exiobase', 'figaro':'Figaro','gloria':'Glori
 ##################
 ## Run Analysis ##
 ##################
-
-for agg_var in ['agg_after', 'agg_before']:
+for agg_var in agg_vars:
     
     # load data
     co2_all = pickle.load(open(emissions_filepath + 'Emissions_aggregated_all_' + agg_var + '.p', 'rb'))
