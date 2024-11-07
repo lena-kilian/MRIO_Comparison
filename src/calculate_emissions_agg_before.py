@@ -236,7 +236,7 @@ for year in years:
     # save
     co2_oecd[year] = emissions
     
-pickle.dump(co2_oecd, open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
+pickle.dump(co2_oecd, open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
 
 print('ICIO Done')
 
