@@ -172,11 +172,8 @@ lookup_sectors = dict(zip(lookup_sectors['oecd_code'], lookup_sectors['combined_
 lookup_fd = lookup['final_demand'][['oecd_code', 'combined_name']].dropna(how='any').drop_duplicates()
 lookup_fd = dict(zip(lookup_fd['oecd_code'], lookup_fd['combined_name']))
 
-'''
-####### IO
-co2_oecd = {}
-
 oecd_data = {}
+co2_oecd = {}
 for year in years:
     
     oecd_data[year] = {}
@@ -200,64 +197,13 @@ for year in years:
     oecd_data[year][footprint] = oecd_data[year][footprint]*1000 # adjust unit to match Figaro
     oecd_data[year][footprint] = oecd_data[year][footprint].loc[Z_cols]
 
-    oecd_data[year]['Z'] = icio.loc[Z_rows, Z_cols]
-    oecd_data[year]['Y'] = icio.loc[Z_rows, Y_cols]
-    
-    Z = oecd_data[year]['Z']; Y = oecd_data[year]['Y']; stressor = oecd_data[year][footprint]
-    
-    # save for reference
-    stressor_sums['oecd'][year] = stressor.sum().sum()
-    
-    # calculate footprint
-    emissions = cef.indirect_footprint_Z(Z, Y, stressor)
-    emissions.index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in emissions.index], ['_'.join(x.split('_')[1:]) for x in emissions.index]])
-    emissions.columns = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in emissions.columns], ['_'.join(x.split('_')[1:]) for x in emissions.columns]])
-   
-    # aggregate industries and products
-    emissions = emissions.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    
-    # save
-    co2_oecd[year] = emissions
-    
-pickle.dump(co2_oecd, open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
-
-print('ICIO Done')
-'''
-
-###### SUT test
-
-oecd_sut_data = {}
-co2_oecd = {}
-for year in years:
-    
-    oecd_sut_data[year] = {}
-
-    name = mrio_filepath + 'ICIO/Ed_2024/' + str(year) + '_SML.csv'         
-    icio = pd.read_csv(name, index_col=0)
-    
-    # save fs cats to filter out Y 
-    Z_cols = oecd_lookup_cols.loc[oecd_lookup_cols['Industry/Final demand'].isin(oecd_lookup_industry['Code.1']) == True]['Sector code']
-    Z_rows = oecd_lookup_rows.loc[oecd_lookup_rows['Industry/Final demand'].isin(oecd_lookup_industry['Code.1']) == True]['Sector code']
-    
-    Y_cols = cp.copy(oecd_lookup_cols)
-    Y_cols['Ind'] = [str(x).split('_')[-1] for x in Y_cols['Sector code']]
-    Y_cols = Y_cols.loc[Y_cols['Ind'].isin(oecd_lookup_fd) == True]['Sector code']
-
-    oecd_sut_data[year][footprint] = temp.loc[(temp['TIME_PERIOD'] == year) & 
-                                          (temp['REF_AREA'].isin(oecd_lookup_country['Code']) == True) &
-                                          (temp['ACTIVITY'].isin(oecd_lookup_industry['Code.1']) == True)]
-    oecd_sut_data[year][footprint]['Sector code'] = oecd_sut_data[year][footprint]['REF_AREA'] + '_' + oecd_sut_data[year][footprint]['ACTIVITY']
-    oecd_sut_data[year][footprint] = oecd_sut_data[year][footprint].set_index(['Sector code'])[['OBS_VALUE']]
-    oecd_sut_data[year][footprint] = oecd_sut_data[year][footprint]*1000 # adjust unit to match Figaro
-    oecd_sut_data[year][footprint] = oecd_sut_data[year][footprint].loc[Z_cols]
-
     # define variables
     U = icio.loc[Z_rows, Z_cols]
     # remove split data for China and Mexico
     Y = icio.loc[Z_rows, Y_cols]
     v = icio.loc['VA':'VA', :].loc[:, Z_cols]
     S = pd.DataFrame(np.diag(v.values[0]), index = U.index, columns = U.columns)
-    stressor = oecd_sut_data[year][footprint].loc[Y.index, 'OBS_VALUE']
+    stressor = oecd_data[year][footprint].loc[Y.index, 'OBS_VALUE']
     
     # make multiindex country, industry
     U.index = pd.MultiIndex.from_arrays([[x.split('_')[0] for x in U.index], ['_'.join(x.split('_')[1:]) for x in U.index]])
@@ -286,27 +232,6 @@ for year in years:
 pickle.dump(co2_oecd, open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
 
 print('ICIO Done')
-
-'''
-all_data = pd.DataFrame()
-for year in years:
-    temp = co2_oecd_sut[year].sum(axis=1, level=0).sum(axis=0, level=1).stack().reset_index()
-    temp.columns = ['industry', 'country', 'ghg']
-    temp['year'] = year
-    temp['type'] = 'sut'
-    all_data = all_data.append(temp)
-    
-    temp = co2_oecd[year].sum(axis=1, level=0).sum(axis=0, level=1).stack().reset_index()
-    temp.columns = ['industry', 'country', 'ghg']
-    temp['year'] = year
-    temp['type'] = 'io'
-    all_data = all_data.append(temp)
-    
-all_data = all_data.set_index(['industry', 'country', 'year', 'type']).unstack(['type']).droplevel(axis=1, level=0)
-all_data['diff_pct'] = np.abs(all_data['io'] - all_data['sut']) / all_data[['io', 'sut']].mean(1) * 100
-
-all_diff = all_data[['diff_pct']].unstack('year')
-'''
 
 ############
 ## Gloria ##
@@ -399,10 +324,14 @@ print('Gloria Done')
 
 for year in years:
     print(year, '\n',
-          'Exio:\t\t', co2_exio[year].sum().sum().round(0), (stressor_sums['exio'][year]/1000000).round(0), '\n',
-          'Figaro:\t', co2_figaro[year].sum().sum().round(0), stressor_sums['figaro'][year].round(0), '\n',
-          'ICIO:\t\t', co2_oecd[year].sum().sum().round(0), stressor_sums['oecd'][year].round(0), '\n',
-          'Gloria:\t', co2_gloria[year].sum().sum().round(0), stressor_sums['gloria'][year].round(0), '\n')
+          'Exio:\t\t', co2_exio[year].sum().sum().round(0), (stressor_sums['exio'][year]).round(0), 
+          (co2_exio[year].sum().sum()/stressor_sums['exio'][year]).round(0), '\n',
+          'Figaro:\t', co2_figaro[year].sum().sum().round(0), stressor_sums['figaro'][year].round(0),
+          (co2_figaro[year].sum().sum()/stressor_sums['figaro'][year]).round(0), '\n',
+          'ICIO:\t\t', co2_oecd[year].sum().sum().round(0), stressor_sums['oecd'][year].round(0), 
+          (co2_oecd[year].sum().sum()/stressor_sums['oecd'][year]).round(0), '\n',
+          'Gloria:\t', co2_gloria[year].sum().sum().round(0), stressor_sums['gloria'][year].round(0),
+          (co2_gloria[year].sum().sum()/stressor_sums['gloria'][year]).round(0), '\n')
 
 ##############
 ## Save all ##
