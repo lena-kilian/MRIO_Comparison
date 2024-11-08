@@ -73,7 +73,7 @@ for year in years:
     stressor = stressor.loc[S.index, stressor_var]
     
     # save for reference
-    stressor_sums['exio'][year] = stressor.sum().sum()
+    stressor_sums['exio'][year] = stressor.sum().sum() / 1000000
     
     # calculate footprint
     emissions = cef.indirect_footprint_SUT(S, U, Y, stressor).T.sum(axis=0, level=[0, 1]) / 1000000

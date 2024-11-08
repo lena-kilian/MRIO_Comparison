@@ -28,10 +28,10 @@ outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 plot_filepath = outputs_filepath + 'plots/'
     
 # define number of top sectors to include
-n = 10 
+n = 10
 
 # define when aggregation happends
-agg_vars = ['_agg_after', '_agg_before', None]
+agg_vars = ['_agg_after']#, '_agg_before']
 
 # plot params
 fs = 16
@@ -78,29 +78,6 @@ for agg_var in agg_vars:
     plt.show() 
     
     
-    # Plot boxplot
-    plot_data = corr['Total']; plot_data['Type'] = 'Total'
-    temp = corr['Imports']; temp['Type'] = 'Imports'
-    plot_data = plot_data.append(temp)
-    
-    fig, ax = plt.subplots(figsize=(20, 5))
-    sns.boxplot(ax=ax, data=plot_data, x='Data', y='spearman', hue='Type', showfliers=False, palette=pal)
-    ax.set_xlabel('')
-    ax.set_ylabel("Spearman's Rho", fontsize=fs)
-    ax.tick_params(axis='y', labelsize=fs)
-      
-    ax.set_xticklabels(ax.get_xticklabels(), fontsize=fs); 
-    
-    for c in range(len(plot_data['Data'].unique())):
-        ax.axvline(c+0.5, c=c_vlines, linestyle=':')
-        
-    ax.axhline(0, c=c_vlines)
-    
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'coxplot_correlation_bydata_industry_GHG' + agg_var + '.png', dpi=200, bbox_inches='tight')
-    plt.show()
-    
-    
     # Plot Scatterplot
     fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
     for c in range(2):
@@ -122,6 +99,49 @@ for agg_var in agg_vars:
     fig.tight_layout()
     plt.savefig(plot_filepath + 'histplot_CO2_sector_corr_by_data_GHG' + agg_var + '.png', dpi=200, bbox_inches='tight')
     plt.show() 
+    
+    ##################
+    ## Industry All ##
+    ##################
+    
+    # get mean emissions by sector
+    
+    
+    
+    sums = summary_industry['Total'].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
+    sums['Total'] = sums.sum(1)
+    sums = sums.T.stack('year')    
+    order = pd.DataFrame(sums.mean(axis=0, level='industry').mean(1)).sort_values(0, ascending=False)
+    order_list = order.index.tolist()
+    
+    order_list.sort()
+    check = pd.DataFrame(order_list)
+    
+    fig, axs = plt.subplots(figsize=(10, 16), ncols=2, sharey=True)
+    for i in range(2):
+        item = ['Total', 'Imports'][i]
+        
+        sums = summary_industry[item].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
+        sums['Total'] = sums.sum(1)
+        sums = sums.T.stack('year')
+    
+        sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
+        
+        # plot    
+        #sns.stripplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=True, alpha=.2, , palette=pal)
+        sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar=None,
+                      errwidth=0, markersize=point_size, palette=pal, markers=marker_list)
+        
+        axs[i].set_title(item)
+        axs[i].set_ylabel('')
+        axs[i].set_xlabel('ktCO\N{SUBSCRIPT TWO}e')
+        axs[i].set_xscale('log')
+        for j in range(len(order_list)):
+            axs[i].axhline(0.5+j, c='k', linestyle=':')
+        
+    fig.tight_layout()
+    plt.savefig(plot_filepath + 'pointplot_CO2_global_by_sector_GHG_ALL' + agg_var + '.png', dpi=200, bbox_inches='tight')
+    plt.show()
     
     ####################
     ## Industry Top n ##
@@ -161,36 +181,6 @@ for agg_var in agg_vars:
         
     fig.tight_layout()
     plt.savefig(plot_filepath + 'pointplot_CO2_global_by_sector_GHG' + agg_var + '.png', dpi=200, bbox_inches='tight')
-    plt.show()
-    
-    
-    fig, axs = plt.subplots(figsize=(10, 8), ncols=2)#, sharey=True)
-    for i in range(2):
-        item = ['Total', 'Imports'][i]
-        
-        sums = summary_industry[item].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
-        sums['Total'] = sums.sum(1)
-        sums = sums.T.stack('year')
-        
-        order = pd.DataFrame(sums.mean(axis=0, level='industry').mean(1)).sort_values(0, ascending=False)
-        order['cumsum'] = order[0].cumsum()
-        order['cumpct'] = order['cumsum'] / order[0].sum() * 100
-        order_list = order.iloc[:n+1].index.tolist()
-    
-        sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index()
-        
-        # plot    
-        sns.barplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', palette=pal)
-        
-        axs[i].set_title(item)
-        axs[i].set_ylabel('')
-        axs[i].set_xlabel('ktCO\N{SUBSCRIPT TWO}e')
-        axs[i].set_xscale('log')
-        for j in range(n+1):
-            axs[i].axhline(0.5+j, c='k', linestyle=':')
-        
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'barplot_CO2_global_by_sector_GHG' + agg_var + '.png', dpi=200, bbox_inches='tight')
     plt.show()
     
     

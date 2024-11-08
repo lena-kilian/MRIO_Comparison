@@ -20,7 +20,7 @@ if platform[:3] == 'win':
 else:
     wd = r'/Volumes/a72/' 
     
-agg_vars = ['agg_after', 'agg_before']
+agg_vars = ['agg_after']:#, 'agg_before']
 
 # define filepaths
 data_filepath = wd + 'ESCoE_Project/data/'

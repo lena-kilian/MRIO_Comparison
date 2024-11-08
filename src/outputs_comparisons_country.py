@@ -26,10 +26,11 @@ outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 plot_filepath = outputs_filepath + 'plots/'
 
 order_var = 'prop_imports' # 'gdp' # 'openness' # 'prop_imports' # 'ghg_cap_total' # 'ghg_cap_imports'
-same_direction_pct_cutoff = 1.5
+same_direction_pct_cutoff = 1 #1.5
 
+agg_vars = ['agg_after']:#, 'agg_before']
 
-for agg_var in ['agg_after', 'agg_before']:    
+for agg_var in agg_vars:   
     # import data
     summary_co2 = pickle.load(open(outputs_filepath + 'summary_co2_country_' + agg_var + '.p', 'rb'))
     mean_co2 = pickle.load(open(outputs_filepath + 'mean_co2_country_' + agg_var + '.p', 'rb'))
