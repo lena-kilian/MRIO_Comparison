@@ -28,7 +28,7 @@ plot_filepath = outputs_filepath + 'plots/'
 order_var = 'prop_imports' # 'gdp' # 'openness' # 'prop_imports' # 'ghg_cap_total' # 'ghg_cap_imports'
 same_direction_pct_cutoff = 1 #1.5
 
-agg_vars = ['agg_after']:#, 'agg_before']
+agg_vars = ['agg_after']#, 'agg_before']
 
 for agg_var in agg_vars:   
     # import data
@@ -137,7 +137,7 @@ for agg_var in agg_vars:
         axs[0, c].set_title(item, fontsize=fs)
         axs[r, c].set_xlabel("NRMSE (%)\n", fontsize=fs)
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG_' + agg_var + '.png', dpi=200, bbox_inches='tight')
     plt.show() 
     
     #################################
@@ -166,7 +166,7 @@ for agg_var in agg_vars:
         axs[0, c].set_title(item, fontsize=fs)
         axs[r, c].set_xlabel("Annual Direction\nSimilarity (%)", fontsize=fs)
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG_' + agg_var + '.png', dpi=200, bbox_inches='tight')
     plt.show() 
     
     
@@ -204,7 +204,7 @@ for agg_var in agg_vars:
     axs[1].xaxis.set_ticks_position('top') # the rest is the same
     
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'scatterplot_overview_regresults_GHG_' + order_var + '.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'scatterplot_overview_regresults_GHG_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
     plt.show()
     
     
@@ -224,7 +224,7 @@ for agg_var in agg_vars:
             plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
             sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tCO2', hue='Datasets', legend=False)
             axs[r, c].set_title(country + ' - ' + item, fontsize=fs)
-    plt.savefig(plot_filepath + 'Lineplot_CO2_all_' + order_var + '.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'Lineplot_CO2_all_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
     plt.show()
     '''
     

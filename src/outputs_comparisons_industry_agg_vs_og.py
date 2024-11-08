@@ -95,6 +95,7 @@ for item in ['Total', 'Imports']:
 
 corr_agg = pd.DataFrame()
 sums_agg = pd.DataFrame()
+corr_detail = pd.DataFrame()
 sums_detail = {}
 fig, axs = plt.subplots(figsize=(8, 4), ncols=2, sharey=True, sharex=True)
 for i in range(2):
@@ -126,6 +127,13 @@ for i in range(2):
     temp['Type'] = item
     temp['level'] = 'country & year'
     corr_agg = corr_agg.append(temp)
+    
+    # corr detail
+    temp = plot_data.drop('year', axis=1).groupby(['industry', 'country', 'Data']).corr().unstack(level=3)\
+        [('Aggregation before Footprint Calculation',  'Aggregation after Footprint Calculation')]\
+            .unstack(level=2)
+    temp['Type'] = item
+    corr_detail = corr_detail.append(temp)
     
     # sums
     temp = plot_data.set_index(['industry', 'country', 'year', 'Data']).sum(axis=0, level=['year', 'Data']).mean(axis=0, level=['Data']).reset_index()
@@ -177,3 +185,5 @@ plt.show()
 sums_agg['diff'] = np.abs(sums_agg['Aggregation after Footprint Calculation'] - sums_agg['Aggregation before Footprint Calculation'])
 sums_agg['diff pct'] =  sums_agg['diff']/sums_agg[['Aggregation after Footprint Calculation', 'Aggregation before Footprint Calculation']].mean(1) * 100
 sums_agg = sums_agg.set_index(['Data', 'sum', 'level', 'Type']).unstack(['Data', 'Type'])
+
+corr_detail = corr_detail.set_index('Type', append=True).unstack('Type')

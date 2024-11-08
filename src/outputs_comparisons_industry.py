@@ -32,6 +32,7 @@ n = 10
 
 # define when aggregation happends
 agg_vars = ['_agg_after']#, '_agg_before']
+order_by = 'Imports' #'Total'
 
 # plot params
 fs = 16
@@ -61,24 +62,6 @@ for agg_var in agg_vars:
     #################
     
     # Plot Histogram
-    fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(10, 10), sharex=True)#, sharey=True)
-    for c in range(2):
-        item = ['Total', 'Imports'][c]
-        for r in range(len(data_comb)):
-            plot_data = corr[item].loc[corr[item]['Data'] == data_comb[r]]
-            sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.025)
-            axs[r, c].axvline(plot_data.median().values, c='k', linestyle=':', linewidth=2)
-            axs[r, c].set_title(data_comb[r])
-            axs[r, c].set_xlim(0, 1)
-            
-            print(item, data_comb[r], plot_data.median().values)
-        axs[r, c].set_xlabel("Spearman's Rho", fontsize=fs)
-    fig.tight_layout()
-    plt.savefig(plot_filepath + 'histplot_CO2_sector_corr_by_data_GHG' + agg_var + '.png', dpi=200, bbox_inches='tight')
-    plt.show() 
-    
-    
-    # Plot Scatterplot
     fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
     for c in range(2):
         item = ['Total', 'Imports'][c]
@@ -106,18 +89,16 @@ for agg_var in agg_vars:
     
     # get mean emissions by sector
     
-    
-    
-    sums = summary_industry['Total'].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
+    sums = summary_industry[order_by].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
     sums['Total'] = sums.sum(1)
     sums = sums.T.stack('year')    
-    order = pd.DataFrame(sums.mean(axis=0, level='industry').mean(1)).sort_values(0, ascending=False)
+    order = pd.DataFrame(sums.mean(axis=0, level='industry').median(1)).sort_values(0, ascending=False)
     order_list = order.index.tolist()
+    #order_list.remove('Extraterritorial organisations')
+    #order_list.remove('Households as employers')
+
     
-    order_list.sort()
-    check = pd.DataFrame(order_list)
-    
-    fig, axs = plt.subplots(figsize=(10, 16), ncols=2, sharey=True)
+    fig, axs = plt.subplots(figsize=(10, 14), ncols=2, sharey=True)
     for i in range(2):
         item = ['Total', 'Imports'][i]
         
@@ -126,9 +107,9 @@ for agg_var in agg_vars:
         sums = sums.T.stack('year')
     
         sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
+        sums.loc[sums[0] < 1, 0] = 1
         
         # plot    
-        #sns.stripplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=True, alpha=.2, , palette=pal)
         sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar=None,
                       errwidth=0, markersize=point_size, palette=pal, markers=marker_list)
         
@@ -140,7 +121,7 @@ for agg_var in agg_vars:
             axs[i].axhline(0.5+j, c='k', linestyle=':')
         
     fig.tight_layout()
-    plt.savefig(plot_filepath + 'pointplot_CO2_global_by_sector_GHG_ALL' + agg_var + '.png', dpi=200, bbox_inches='tight')
+    plt.savefig(plot_filepath + 'pointplot_CO2_global_by_sector_GHG_ALL_ordered_' + order_by + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
     plt.show()
     
     ####################
@@ -149,7 +130,7 @@ for agg_var in agg_vars:
     
     # get mean emissions by sector
     cumsum_industry = {}
-    fig, axs = plt.subplots(figsize=(10, 8), ncols=2)#, sharey=True)
+    fig, axs = plt.subplots(figsize=(10, 6), ncols=2)#, sharey=True)
     for i in range(2):
         item = ['Total', 'Imports'][i]
         
@@ -178,6 +159,9 @@ for agg_var in agg_vars:
         axs[i].set_xscale('log')
         for j in range(n+1):
             axs[i].axhline(0.5+j, c='k', linestyle=':')
+            
+    axs[1].legend(bbox_to_anchor=(1, -0.15), ncol=4)
+    axs[0].get_legend().remove()
         
     fig.tight_layout()
     plt.savefig(plot_filepath + 'pointplot_CO2_global_by_sector_GHG' + agg_var + '.png', dpi=200, bbox_inches='tight')
