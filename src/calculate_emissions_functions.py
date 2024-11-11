@@ -11,7 +11,7 @@ import numpy as np
 def make_x(Z, Y):
     
     x = np.sum(Z, 1)+np.sum(Y, 1)
-    x[x == 0] = 0.000000001
+    x[x == 0] = 0.001
     
     return x
 
@@ -19,9 +19,9 @@ def make_x(Z, Y):
 def make_L(Z, x):
     
     bigX = np.zeros(shape = (len(Z)))    
-    bigX = np.tile(np.transpose(x), (len(Z), 1))
-    A = np.divide(Z, bigX)
-    L = np.linalg.inv(np.identity(len(A))-A)
+    bigX = np.tile(np.transpose(x),(len(Z),1))
+    A = np.divide(Z,bigX)    
+    L = np.linalg.inv(np.identity(len(Z))-A)
 
     return L
 
@@ -61,7 +61,8 @@ def indirect_footprint_SUT(S, U, Y, stressor):
                                         [x[1] for x in S.index.tolist()] + [x[1] for x in U.index.tolist()]])
 
     
-    s_cols = S.columns.tolist()
+    s_idx = S.index.tolist()
+    u_idx = U.index.tolist()
     y_cols = Y.columns
     
     # calculate emissions
@@ -69,52 +70,31 @@ def indirect_footprint_SUT(S, U, Y, stressor):
     
     bigY = np.zeros(shape = [np.size(Z, 0), np.size(Y, 1)])
     
-    footprint = np.zeros(shape = bigY.shape).T
-    
     bigY[np.size(S, 0):np.size(Z, 0), 0:] = Y 
     x = make_x(Z, bigY)
     L = make_L(Z, x)
     bigstressor = np.zeros(shape = [np.size(Z, 0), 1])
     bigstressor[:np.size(S, 0), 0] = np.array(stressor)
     e = np.sum(bigstressor, 1)/x
+    
+    # industry
+    footprint_ind = np.zeros(shape = bigY.shape).T
+    
+    eL = np.dot(np.diag(e), L)
+    for a in range(np.size(bigY, 1)):
+        footprint_ind[a] = np.dot(eL, bigY[:, a])
+    
+    footprint_ind = pd.DataFrame(footprint_ind, index=y_cols, columns=su_idx)
+    footprint_ind = footprint_ind[s_idx]
+    
+    # product
+    footprint_prod = np.zeros(shape = bigY.shape).T
+    
     eL = np.dot(e, L)
+    for a in range(np.size(bigY, 1)):
+        footprint_prod[a] = np.dot(eL, np.diag(bigY[:, a]))
     
-    for a in range(np.size(Y, 1)):
-        footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
-    
-    footprint = pd.DataFrame(footprint, index=y_cols, columns=su_idx)
-    footprint = footprint[s_cols]
+    footprint_prod = pd.DataFrame(footprint_prod, index=y_cols, columns=su_idx)
+    footprint_prod = footprint_prod[u_idx]
      
-    return footprint
-
-def indirect_footprint_gloria(S, U, Y, stressor):
-    
-    # save column names
-    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.index.tolist()] + [x[0] for x in U.index.tolist()],
-                                        [x[1] for x in S.index.tolist()] + [x[1] for x in U.index.tolist()]])
-    s_cols = S.columns.tolist()
-
-    # calculate gloria footprint
-    Z = make_Z_from_S_U(S, U) 
-    del S, U # remove S and U to clear memory
-    bigY = np.zeros(shape = [np.size(Y, 0)*2, np.size(Y, 1)])
-    
-    footprint = np.zeros(shape = bigY.shape).T
-  
-    bigY[np.size(Y, 0):np.size(Y, 0)*2, 0:] = Y     
-    x = make_x(Z, bigY)
-    L = make_L(Z, x)
-    print(L.sum())
-    bigstressor = np.zeros(shape = [np.size(Y, 0)*2, 1])
-    bigstressor[:np.size(Y, 0), 0] = np.array(stressor)
-    e = np.sum(bigstressor, 1)/x
-    eL = np.dot(e, L)
-    
-    for a in range(np.size(Y, 1)):
-        footprint[a] = np.dot(eL, np.diag(bigY[:, a]))
-        print(a, footprint[a].sum())
-    
-    footprint = pd.DataFrame(footprint, index=Y.columns, columns=su_idx)
-    footprint = footprint[s_cols]
-    
-    return footprint
+    return footprint_ind, footprint_prod

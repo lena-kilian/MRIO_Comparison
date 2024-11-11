@@ -410,9 +410,10 @@ def indirect_footprint_SUT(S, U, Y, stressor):
 
     return footprint
 
+
 # I have pulled out the calculation of the footprint so I can time it
 
-def calculate_footprint_new(eL2,Y,y_cols,u_cols):
+def calculate_footprint_prod(eL2,Y,y_cols,u_cols):
 
     # for each column in Y the code used to take the diagonal of bigY to find the dot product with eL
     # as bigY was 0 in the top half, only the bottom half of eL would have been valid
@@ -425,14 +426,13 @@ def calculate_footprint_new(eL2,Y,y_cols,u_cols):
 
 # equivalent of indirect_footprint_SUT but does it as components
 
-def indirect_footprint_SUT_new(S, U, Y, stressor):
+def indirect_footprint_SUT_prod(S, U, Y, stressor):
     # calculate emissions
     sumS, sumUY=make_x_comp_new(S,U,Y)
 
     # stressor has 1 row also may be different indexing which messes up np.divide so just look at array
     stress=stressor.to_numpy()[0,:]
     e1=np.divide(stress, sumS) # lower part of e is 0 as bigstressor only had stressor in top part
-    e2=0
 
     #np.save('e1_new.npy', e1)
 
@@ -442,6 +442,40 @@ def indirect_footprint_SUT_new(S, U, Y, stressor):
     
     y_cols = Y.columns
     u_cols=U.columns
-    footprint=calculate_footprint_new(eL2,Y,y_cols,u_cols)
+    footprint=calculate_footprint_prod(eL2,Y,y_cols,u_cols)
 
     return footprint
+
+# add industry footprint
+
+def indirect_footprint_SUT_ind(S, U, Y, stressor):
+    # make column names
+    su_idx = pd.MultiIndex.from_arrays([[x[0] for x in S.index.tolist()] + [x[0] for x in U.index.tolist()],
+                                        [x[1] for x in S.index.tolist()] + [x[1] for x in U.index.tolist()]])
+
+    s_idx = S.index.tolist()
+    y_cols = Y.columns
+    
+    # calculate emissions
+    Z = make_Z_from_S_U(S, U) 
+    
+    bigY = np.zeros(shape = [np.size(Z, 0), np.size(Y, 1)])
+    
+    bigY[np.size(S, 0):np.size(Z, 0), 0:] = Y 
+    x = make_x(Z, bigY)
+    L = make_L(Z, x)
+    bigstressor = np.zeros(shape = [np.size(Z, 0), 1])
+    bigstressor[:np.size(S, 0), 0] = np.array(stressor)
+    e = np.sum(bigstressor, 1)/x
+    
+    # industry
+    footprint_ind = np.zeros(shape = bigY.shape).T
+    
+    eL = np.dot(np.diag(e), L)
+    for a in range(np.size(bigY, 1)):
+        footprint_ind[a] = np.dot(eL, bigY[:, a])
+    
+    footprint_ind = pd.DataFrame(footprint_ind, index=y_cols, columns=su_idx)
+    footprint_ind = footprint_ind[s_idx]
+     
+    return footprint_ind
