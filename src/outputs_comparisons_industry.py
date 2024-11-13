@@ -25,13 +25,13 @@ else:
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
-plot_filepath = outputs_filepath + 'plots/'
+plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Postdoc/ESCoE/plots/'
     
 # define number of top sectors to include
 n = 10
 
 # define when aggregation happends
-agg_vars = ['_agg_after']#, '_agg_before']
+agg_vars = ['_agg_after', '_agg_before']
 order_by = 'Total' # 'Imports' #
 levels = ['industry', 'products']
 
@@ -50,6 +50,7 @@ for level in levels:
         # Load Data
         summary_industry = pickle.load(open(outputs_filepath + 'summary_' + level + agg_var + '.p', 'rb'))
         corr = pickle.load(open(outputs_filepath + 'corr_' + level + agg_var + '.p', 'rb'))
+        corr_detail = pickle.load(open(outputs_filepath + 'corr_detail_' + level + agg_var + '.p', 'rb'))
         
         datasets = summary_industry['Total'].columns.tolist(); datasets.sort()
         years = summary_industry['Total'].index.levels[2].tolist()
@@ -63,6 +64,9 @@ for level in levels:
         ## Correlation ##
         #################
         
+        for item in ['Total', 'Imports']:
+            print(item, corr[item].groupby('Data').median().min())
+        
         # Plot Histogram
         fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
         for c in range(2):
@@ -72,7 +76,10 @@ for level in levels:
                 sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.05, color=get_cmap(pal)(c), alpha=0.5)
                 axs[r, c].axvline(plot_data.median().values, c='k', linestyle=':', linewidth=2)
                 axs[r, c].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
-                axs[r, c].set_xlim(0, 1)
+                if level == 'products':
+                    axs[r, c].set_xlim(0.3, 1.02)
+                else:
+                    axs[r, c].set_xlim(0.5, 1.02)
                 #y_labels =[int(y) for y in axs[r, c].get_yticks()]
                 #y_labels = [0, 10, 20, 30, 40]
                 #print(y_labels)
@@ -86,6 +93,23 @@ for level in levels:
         fig.tight_layout()
         plt.savefig(plot_filepath + 'histplot_CO2_sector_corr_by_data_GHG_' + level + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show() 
+        
+        #################
+        ## Corr Detail ##
+        #################
+        
+        for item in ['Total', 'Imports']:
+            sums = summary_industry[item].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
+            sums['Total'] = sums.sum(1)
+            sums = sums.T.stack('year')    
+            order = pd.DataFrame(sums.mean(axis=0, level='industry').median(1)).sort_values(0, ascending=False)
+            order_list = order.index.tolist()
+            corr_detail[item] = corr_detail[item][order_list]
+
+        # save
+        with pd.ExcelWriter(outputs_filepath + 'corrdetail_' + level + agg_var + '.xlsx', engine='xlsxwriter') as writer:
+            corr_detail['Total'].reset_index().to_excel(writer, sheet_name='Total')
+            corr_detail['Imports'].reset_index().to_excel(writer, sheet_name='Imports')
         
         ##################
         ## Industry All ##
@@ -134,7 +158,7 @@ for level in levels:
         ####################
         ## Industry Top n ##
         ####################
-        
+         
         # get mean emissions by sector
         cumsum_industry = {}
         fig, axs = plt.subplots(figsize=(10, 6), ncols=2)#, sharey=True)
@@ -152,7 +176,7 @@ for level in levels:
             cumsum_industry[item] = order
             
             order_list = order.iloc[:n+1].index.tolist()
-        
+            
             sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
             
             # plot    
@@ -163,7 +187,7 @@ for level in levels:
             axs[i].set_title(item)
             axs[i].set_ylabel('')
             axs[i].set_xlabel('ktCO\N{SUBSCRIPT TWO}e')
-            axs[i].set_xscale('log')
+            #axs[i].set_xscale('log')
             for j in range(n+1):
                 axs[i].axhline(0.5+j, c='k', linestyle=':')
                 

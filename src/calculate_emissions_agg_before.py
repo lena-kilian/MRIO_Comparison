@@ -34,6 +34,9 @@ lookup = pd.read_excel(wd + 'ESCoE_Project/data/lookups/mrio_lookup_sectors_coun
 
 stressor_sums = {}; stressor_sums['exio'] = {}; stressor_sums['figaro'] = {}; stressor_sums['oecd'] = {}; stressor_sums['gloria'] = {}
 
+co2_exio_ind = {}; co2_figaro_ind = {}; co2_gloria_ind = {}; co2_oecd_ind = {}
+co2_exio_prod = {}; co2_figaro_prod = {}; co2_gloria_prod = {}; co2_oecd_prod = {}
+
 ##############
 ## Exiobase ##
 ##############
@@ -77,11 +80,12 @@ for year in years:
     Y = Y.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
     stressor = stressor.rename(index=lookup_country).rename(index=lookup_sectors).sum(axis=0, level=[0,1]).iloc[:,0]
     
-    co2_exio[year] = cef.indirect_footprint_SUT(S, U, Y, stressor).T.sum(axis=0, level=[0, 1]) / 1000000
+    emissions_ind, emissions_prod = cef.indirect_footprint_SUT(S, U, Y, stressor)
+    
+    co2_exio_ind[year] = emissions_ind.T.sum(axis=0, level=[0, 1]) / 1000000
+    co2_exio_prod[year] = emissions_prod.sum(axis=0, level=[0, 1]) / 1000000
     #print(year)
-
-pickle.dump(co2_exio, open(emissions_filepath + 'Exiobase/Exiobase_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
-
+    
 print('Exiobase Done')
 
 ############
@@ -137,10 +141,11 @@ for year in years:
     stressor = stressor.rename(columns=lookup_country).rename(columns=lookup_sectors).sum(axis=1, level=[0,1])
     
     # calculate footprint
-    co2_figaro[year] = cef.indirect_footprint_SUT(S, U, Y, stressor).T.sum(axis=0, level=[0, 1])
-
-pickle.dump(co2_figaro, open(emissions_filepath + 'Figaro/Figaro_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
-
+    emissions_ind, emissions_prod = cef.indirect_footprint_SUT(S, U, Y, stressor)
+    
+    co2_figaro_ind[year] = emissions_ind.T.sum(axis=0, level=[0, 1])
+    co2_figaro_prod[year] = emissions_prod.T.sum(axis=0, level=[0, 1])
+    
 print('Figaro Done')
 
 
@@ -231,13 +236,11 @@ for year in years:
     stressor_sums['oecd'][year] = stressor.sum().sum()
     
     # calculate footprint
-    emissions = cef.indirect_footprint_SUT(S, U, Y, stressor).T
+    emissions_ind, emissions_prod = cef.indirect_footprint_SUT(S, U, Y, stressor)
     
-    # save
-    co2_oecd[year] = emissions
+    co2_oecd_ind[year] = emissions_ind.T
+    co2_oecd_prod[year] = emissions_prod.T
     
-pickle.dump(co2_oecd, open(emissions_filepath + 'ICIO/ICIO_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
-
 print('ICIO Done')
 
 ############
@@ -319,11 +322,10 @@ for year in years:
     Y = Y.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
     stressor = stressor.rename(columns=lookup_country).rename(columns=lookup_sectors).sum(axis=1, level=[0,1])
 
-    co2_gloria[year] = cef_g.indirect_footprint_SUT_new(S, U, Y, stressor).T
+    co2_gloria_ind[year] = cef_g.indirect_footprint_SUT_ind(S, U, Y, stressor).T
+    co2_gloria_prod[year] = cef_g.indirect_footprint_SUT_prod(S, U, Y, stressor).T
     
     print('Gloria calculated for ' + str(year))
-
-pickle.dump(co2_gloria, open(emissions_filepath + 'Gloria/Gloria_emissions_' + footprint + '_v' + version + '_agg_before.p', 'wb'))
 
 print('Gloria Done')
 
@@ -331,25 +333,34 @@ print('Gloria Done')
 ## Print check ##
 #################
 
+check_prod = pd.DataFrame(); check_ind = pd.DataFrame()
+# add checks
 for year in years:
-    print(year, '\n',
-          'Exio:\t\t', co2_exio[year].sum().sum().round(0), (stressor_sums['exio'][year]).round(0), 
-          (co2_exio[year].sum().sum()/stressor_sums['exio'][year]).round(0), '\n',
-          'Figaro:\t', co2_figaro[year].sum().sum().round(0), stressor_sums['figaro'][year].round(0),
-          (co2_figaro[year].sum().sum()/stressor_sums['figaro'][year]).round(0), '\n',
-          'ICIO:\t\t', co2_oecd[year].sum().sum().round(0), stressor_sums['oecd'][year].round(0), 
-          (co2_oecd[year].sum().sum()/stressor_sums['oecd'][year]).round(0), '\n',
-          'Gloria:\t', co2_gloria[year].sum().sum().round(0), stressor_sums['gloria'][year].round(0),
-          (co2_gloria[year].sum().sum()/stressor_sums['gloria'][year]).round(0), '\n')
-
+    # prod
+    temp_prod = pd.DataFrame(co2_exio_prod[year].sum(axis=0, level=1).sum(axis=1))\
+        .join(pd.DataFrame(co2_figaro_prod[year].sum(axis=0, level=1).sum(axis=1)), lsuffix='_exio', rsuffix='figaro')\
+            .join(pd.DataFrame(co2_oecd_prod[year].sum(axis=0, level=1).sum(axis=1)))\
+                .join(pd.DataFrame(co2_gloria_prod[year].sum(axis=0, level=1).sum(axis=1)), lsuffix='_oecd', rsuffix='gloria')
+    temp_prod['year'] = year
+    check_prod = check_prod.append(temp_prod.reset_index())
+    
+    # ind
+    temp_ind = pd.DataFrame(co2_exio_ind[year].sum(axis=0, level=1).sum(axis=1))\
+        .join(pd.DataFrame(co2_figaro_ind[year].sum(axis=0, level=1).sum(axis=1)), lsuffix='_exio', rsuffix='figaro')\
+            .join(pd.DataFrame(co2_oecd_ind[year].sum(axis=0, level=1).sum(axis=1)))\
+                .join(pd.DataFrame(co2_gloria_ind[year].sum(axis=0, level=1).sum(axis=1)), lsuffix='_oecd', rsuffix='gloria')
+    temp_ind['year'] = year
+    check_ind = check_ind.append(temp_ind.reset_index())
+    
+    print(year, '\nProd:\n', temp_prod.drop('year', axis=1).sum(axis=0),
+          '\nInd:\n', temp_ind.drop('year', axis=1).sum(axis=0), '\n\n\n')
     
 ##############
 ## Save all ##
 ##############
 
-co2_all = {'exio':co2_exio,
-           'figaro':co2_figaro,
-           'gloria':co2_gloria,
-           'oecd':co2_oecd}
+co2_all_prod = {'exio':co2_exio_prod, 'figaro':co2_figaro_prod, 'gloria':co2_gloria_prod, 'oecd':co2_oecd_prod}
+co2_all_ind = {'exio':co2_exio_ind, 'figaro':co2_figaro_ind, 'gloria':co2_gloria_ind, 'oecd':co2_oecd_ind}
 
-pickle.dump(co2_all, open(emissions_filepath + 'Emissions_aggregated_all_agg_before.p', 'wb'))
+pickle.dump(co2_all_ind, open(emissions_filepath + 'Emissions_industry_all_agg_before.p', 'wb'))
+pickle.dump(co2_all_prod, open(emissions_filepath + 'Emissions_products_all_agg_before.p', 'wb'))

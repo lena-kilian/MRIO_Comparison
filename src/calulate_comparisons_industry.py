@@ -19,7 +19,7 @@ else:
 # define params
 corr_method = 'spearman' # 'pearson
 
-agg_vars = ['agg_after']#, 'agg_before']
+agg_vars = ['agg_after', 'agg_before']
 levels = ['industry', 'products']
 
 # define filepaths
@@ -35,7 +35,7 @@ ind_dict = {
     'Accommodation and food service activities' : 'Accommodation &\nfood services',
     'Activities of extraterritorial organisations and bodies' : 'Extraterritorial\norganisations',
     'Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use' : 'Households as\nemployers',
-    'Administrative, support and other professional and supporting transport services' : 'Professional &\nsupporting transport\nservices',
+    'Administrative, support and other professional and supporting transport services' : 'Professional & supporting\ntransport services',
     'Agriculture, hunting, forestry' : 'Agriculture &\nforestry',
     'Air transport' : 'Air transport',
     'Basic metals' : 'Basic metals',
@@ -167,3 +167,29 @@ for level in levels:
         
         # save
         pickle.dump(corr_all, open(outputs_filepath + 'corr_' + level + '_' + agg_var + '.p', 'wb'))
+        
+        #####################
+        ## Industry & Corr ##
+        #####################
+        
+        # get mean emissions by sector and country
+        corr_detail = {}
+        # total
+        temp = summary.unstack(level=0).stack(level=0)
+        temp['Total'] = temp.sum(1)
+        temp = temp.unstack(level=2).stack(level=0)
+        temp = temp.groupby(['country', 'industry']).corr(method=corr_method).unstack(level=[2])
+        temp.columns = [x[0] + ', ' + x[1] for x in temp.columns]
+        temp = temp[data_comb].unstack(level=1).stack(level=0)
+        corr_detail['Total'] = temp
+       
+        # imports
+        temp = summary_im.unstack(level=0).stack(level=0)
+        temp['Total'] = temp.sum(1)
+        temp = temp.unstack(level=2).stack(level=0)
+        temp = temp.groupby(['country', 'industry']).corr(method=corr_method).unstack(level=[2])
+        temp.columns = [x[0] + ', ' + x[1] for x in temp.columns]
+        temp = temp[data_comb].unstack(level=1).stack(level=0)
+        corr_detail['Imports'] = temp
+        
+        pickle.dump(corr_detail, open(outputs_filepath + 'corr_detail_' + level + '_' + agg_var + '.p', 'wb'))

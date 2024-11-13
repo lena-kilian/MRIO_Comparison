@@ -23,12 +23,12 @@ else:
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
-plot_filepath = outputs_filepath + 'plots/'
+plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Postdoc/ESCoE/plots/'
 
 order_var = 'prop_imports' # 'gdp' # 'openness' # 'prop_imports' # 'ghg_cap_total' # 'ghg_cap_imports'
 same_direction_pct_cutoff = 1.5 
 
-agg_vars = ['agg_after']#, 'agg_before']
+agg_vars = ['agg_after', 'agg_before']
 levels = ['industry', 'products']
 
 for level in levels:
@@ -172,9 +172,58 @@ for level in levels:
             axs[0, c].set_title(item, fontsize=fs)
             axs[r, c].set_xlabel("Annual Direction\nSimilarity (%)", fontsize=fs)
         fig.tight_layout()
-        plt.savefig(plot_filepath + 'histplot_similarity_bydata_Boxplot_similarity_bydata_direction_GHG_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'histplot_similarity_bydata_direction_GHG_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show() 
         
+        #################################
+        ## Combine NRMSE and Direction ##
+        #################################
+        
+        plot_data_err = rmse_pct['Total'].set_index('country').stack().reset_index().rename(columns={0:'Value'})
+        plot_data_err['Type'] = 'Total'
+        temp = rmse_pct['Imports'].set_index('country').stack().reset_index().rename(columns={0:'Value'})
+        temp['Type'] = 'Imports'
+        plot_data_err = plot_data_err.append(temp)
+        plot_data_err['axis'] = 'NRMSE (%)'
+        
+        plot_data_dir = direction['Total']; plot_data['Type'] = 'Total'
+        temp = direction['Imports']; temp['Type'] = 'Imports'
+        plot_data_dir = plot_data_dir.append(temp)[['country', 'dataset', 'Type', 'pct_same']]\
+            .rename(columns={'pct_same':'Value'})
+        plot_data_dir['axis'] = 'Annual Direction\nSimilarity (%)'
+        
+        plot_data = plot_data_err.append(plot_data_dir)
+        plot_data['country_cat'] = pd.Categorical(plot_data['country'], categories=country_order, ordered=True)
+        plot_data['Country'] = '                     ' + plot_data['country']
+        plot_data = plot_data.sort_values(['country_cat', 'dataset'])
+          
+        # plot
+        fig, axs = plt.subplots(nrows=2, figsize=(15, 7.5), sharex=True)
+        for i in range(2):
+            item = plot_data['axis'].unique()[i]
+            temp = plot_data.loc[(plot_data['axis'] == item)]
+            sns.pointplot(ax=axs[i], data=temp, x='country', y='Value', linestyles='', 
+                          hue='Type', palette=pal, dodge=0.25, errorbar='sd')
+            
+            axs[i].tick_params(axis='y', labelsize=fs)
+            axs[i].set_xlabel('', fontsize=fs)
+            axs[i].set_ylabel(item, fontsize=fs)
+            for c in range(len(plot_data['country'].unique())-1):
+                axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
+                    
+        axs[0].legend().remove()
+        axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.25), fontsize=fs, ncol=2, markerscale=2)
+        
+        axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', fontsize=fs); 
+        axs[1].xaxis.set_ticks_position('top') # the rest is the same
+        
+        axs[0].set_ylim(0, 100)
+        axs[1].set_ylim(0, 100)
+        
+        fig.tight_layout()
+        plt.savefig(plot_filepath + 'pointplot_similarity_bydata_rmse_pct_&_direction_GHG_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.show()
+    
         
         ###################################
         ## Regress footprints over years ##
