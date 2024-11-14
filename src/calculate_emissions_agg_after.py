@@ -60,7 +60,7 @@ for year in years:
     
     exio_data = {}
                   
-    filepath = wd + 'UKMRIO_Data/EXIOBASE/3.8.2/MRSUT_' + str(year) + '/'
+    filepath = wd + 'UKMRIO_Data/data/raw/EXIOBASE/3.8.2/MRSUT_' + str(year) + '/'
             
     exio_data['S'] = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0, 1], index_col = [0, 1]).T
     exio_data['U'] = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0, 1], index_col = [0, 1])
@@ -80,6 +80,9 @@ for year in years:
     stressor_sums['exio'][year] = stressor.rename(index=lookup_sectors).sum(axis=0, level=1) 
     
     emissions_ind, emissions_prod = cef.indirect_footprint_SUT(S, U, Y, stressor)
+    # save as csv
+    emissions_ind.to_csv('O:/ESCoE_Project/data/Emissions/Exiobase/Exiobase_ghg_industries_' + str(year) + '.csv')
+    emissions_prod.to_csv('O:/ESCoE_Project/data/Emissions/Exiobase/Exiobase_ghg_products_' + str(year) + '.csv')
     # aggregate industries and products
     emissions_ind = emissions_ind.T.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
     emissions_prod = emissions_prod.T.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
@@ -88,8 +91,8 @@ for year in years:
     co2_exio_ind[year] = emissions_ind
     co2_exio_prod[year] = emissions_prod
 
-pickle.dump(co2_exio_ind, open(emissions_filepath + 'Exiobase/Exio_industry_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
-pickle.dump(co2_exio_prod, open(emissions_filepath + 'Exiobase/Exio_products_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
+pickle.dump(co2_exio_ind, open(emissions_filepath + 'Exiobase/Exiobase_industry_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
+pickle.dump(co2_exio_prod, open(emissions_filepath + 'Exiobase/Exiobase_products_' + footprint + '_v' + version + '_agg_after.p', 'wb'))
 
 print('Exiobase Done')
 
@@ -140,6 +143,9 @@ for year in years:
     
     # calculate footprint
     emissions_ind, emissions_prod = cef.indirect_footprint_SUT(S, U, Y, stressor)
+    # save as csv
+    emissions_ind.to_csv('O:/ESCoE_Project/data/Emissions/Figaro/Figaro_ghg_industries_' + str(year) + '.csv')
+    emissions_prod.to_csv('O:/ESCoE_Project/data/Emissions/Figaro/Figaro_ghg_products_' + str(year) + '.csv')
     # aggregate industries and products
     emissions_ind = emissions_ind.T.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
     emissions_prod = emissions_prod.T.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
@@ -232,6 +238,9 @@ for year in years:
     
     # calculate footprint
     emissions_ind, emissions_prod = cef.indirect_footprint_SUT(S, U, Y, stressor)
+    # save as csv
+    emissions_ind.to_csv('O:/ESCoE_Project/data/Emissions/ICIO/ICIO_ghg_industries_' + str(year) + '.csv')
+    emissions_prod.to_csv('O:/ESCoE_Project/data/Emissions/ICIO/ICIO_ghg_products_' + str(year) + '.csv')
     # aggregate industries and products
     emissions_ind = emissions_ind.T.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
     emissions_prod = emissions_prod.T.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
@@ -322,6 +331,10 @@ for year in years:
             cols1.append(temp)
     emissions_prod.columns = pd.MultiIndex.from_arrays([cols0, cols1])
     emissions_prod = emissions_prod.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
+    
+    # save as csv
+    emissions_ind.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Gloria_ghg_industries_' + str(year) + '.csv')
+    emissions_prod.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Gloria_ghg_products_' + str(year) + '.csv')
     
     # aggregate industries and products
     cols0 = [x[0] for x in emissions_ind.columns.tolist()]

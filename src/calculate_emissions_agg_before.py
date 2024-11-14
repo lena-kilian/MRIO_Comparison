@@ -60,7 +60,7 @@ for year in years:
     
     exio_data = {}
                   
-    filepath = wd + 'UKMRIO_Data/EXIOBASE/3.8.2/MRSUT_' + str(year) + '/'
+    filepath = wd + 'UKMRIO_Data/data/raw/EXIOBASE/3.8.2/MRSUT_' + str(year) + '/'
             
     exio_data['S'] = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0, 1], index_col = [0, 1]).T
     exio_data['U'] = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0, 1], index_col = [0, 1])
