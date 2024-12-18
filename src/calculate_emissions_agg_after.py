@@ -25,15 +25,20 @@ else:
 mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
-years = range(2010, 2023)
-
 version = '2024'
 footprint = 'co2' #'ghg
+
+if footprint == 'co2':
+    years = range(2010, 2022)
+    mrio_list = ['exio', 'figaro', 'gloria']
+elif footprint =='ghg':
+    years = range(2010, 2021)
+    mrio_list = ['exio', 'figaro', 'oecd', 'gloria']
 
 lookup = pd.read_excel(wd + 'ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name=None) 
 
 stressor_sums = {}; 
-for item in ['exio', 'figaro', 'oecd', 'gloria']:
+for item in mrio_list:
     stressor_sums[item] = pd.DataFrame(index=lookup['sectors']['combined_name'].unique())
     
 ##############
@@ -395,10 +400,13 @@ for year in years:
 ## Save all ##
 ##############
 
-co2_all_prod = {'exio':co2_exio_prod, 'figaro':co2_figaro_prod, 'gloria':co2_gloria_prod, 'oecd':co2_oecd_prod}
-co2_all_ind = {'exio':co2_exio_ind, 'figaro':co2_figaro_ind, 'gloria':co2_gloria_ind, 'oecd':co2_oecd_ind}
+co2_all_prod = {}
+co2_all_ind = {}
+for item in mrio_list:
+    co2_all_prod[item] = eval('co2_' + item + '_prod')
+    co2_all_ind[item] = eval('co2_' + item + '_ind')
 
-pickle.dump(co2_all_prod, open(emissions_filepath + 'Emissions_products_all_agg_after.p', 'wb'))
-pickle.dump(co2_all_ind, open(emissions_filepath + 'Emissions_industry_all_agg_after.p', 'wb'))
+pickle.dump(co2_all_prod, open(emissions_filepath + 'Emissions_products_' + footprint + '_all_agg_after_.p', 'wb'))
+pickle.dump(co2_all_ind, open(emissions_filepath + 'Emissions_industry_' + footprint + '_all_agg_after.p', 'wb'))
 
-pickle.dump(stressor_sums, open(emissions_filepath + 'Industry_emissions_from_stressor.p', 'wb'))
+pickle.dump(stressor_sums, open(emissions_filepath + 'Industry_emissions_' + footprint + '_from_stressor.p', 'wb'))
