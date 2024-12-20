@@ -329,6 +329,10 @@ for year in years:
 
     emissions_ind = cef_g.indirect_footprint_SUT_ind(S, U, Y, stressor).T
     emissions_prod = cef_g.indirect_footprint_SUT_prod(S, U, Y, stressor).T
+
+    # save as csv
+    emissions_ind.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Gloria_' + footprint + '_industries_' + str(year) + '.csv')
+    emissions_prod.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Gloria_' + footprint + '_products_' + str(year) + '.csv')
     
     # aggregate industries and products
     cols0 = [x[0] for x in emissions_prod.columns.tolist()]
@@ -339,12 +343,9 @@ for year in years:
             cols1.append(temp[1:])
         else:
             cols1.append(temp)
+    
     emissions_prod.columns = pd.MultiIndex.from_arrays([cols0, cols1])
     emissions_prod = emissions_prod.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
-    
-    # save as csv
-    emissions_ind.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Gloria_' + footprint + '_industries_' + str(year) + '.csv')
-    emissions_prod.to_csv('O:/ESCoE_Project/data/Emissions/Gloria/Gloria_' + footprint + '_products_' + str(year) + '.csv')
     
     # aggregate industries and products
     cols0 = [x[0] for x in emissions_ind.columns.tolist()]
