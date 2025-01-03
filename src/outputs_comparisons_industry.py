@@ -31,9 +31,9 @@ plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Postdoc/ESCoE/pl
 n = 10
 
 # define when aggregation happends
-agg_vars = ['_agg_after', '_agg_before']
+agg_vars = ['_agg_after']#, '_agg_before']
 order_by = 'Total' # 'Imports' #
-levels = ['industry', 'products']
+levels = ['industry']#, 'products']
 
 # plot params
 fs = 16
@@ -45,6 +45,14 @@ scatter_size = 100
 pal = 'tab10'
 marker_list = ["o", "X", "s", "P"]
 
+top_sectors = {'Total' : ['Total', 'Electricity &\ngas', 'Agriculture &\nforestry', 'Mining', 'Other non-\nmetallic minerals', 'Basic metals',
+                     'Water supply &\nwaste management', 'Chemicals &\nparmaceuticals', 'Land & pipeline\ntransport', 'Coke & refined\npetroleum',
+                     'Air transport'],
+               'Imports' : ['Electricity &\ngas', 'Mining', 'Agriculture &\nforestry', 'Basic metals', 'Chemicals &\nparmaceuticals',
+                     'Other non-\nmetallic minerals', 'Coke & refined\npetroleum', 'Water supply &\nwaste management',
+                     'Land & pipeline\ntransport', 'Water transport']}
+
+top_corr = {}
 for level in levels:
     for agg_var in agg_vars:
         # Load Data
@@ -66,7 +74,11 @@ for level in levels:
         
         for item in ['Total', 'Imports']:
             print(item, corr[item].groupby('Data').median().min())
-        
+            
+            top_corr[item] = pd.DataFrame(corr_detail[item][top_sectors[item]].stack()).rename(columns={0:item})
+            top_corr[item] = top_corr[item].reset_index().groupby(['country', 'industry']).describe()[item]\
+                [['min', '50%']].unstack(level=1)
+                                                                                       
         # Plot Histogram
         fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
         for c in range(2):
