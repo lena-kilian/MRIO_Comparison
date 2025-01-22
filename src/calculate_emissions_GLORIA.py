@@ -78,11 +78,14 @@ for year in years:
 
     # save for reference
     emissions_ind = cef_g.indirect_footprint_SUT_ind(S, U, Y, stressor).T
-    
-    emissions_ind_gov = emissions_ind.swaplevel(axis=1)[[' Government final consumption P.3g']].swaplevel(axis=1)
-    emissions_ind_gov = emissions_ind_gov.rename(columns=country_dict, index=country_dict)
-
+    emissions_ind = emissions_ind.rename(columns=country_dict, index=country_dict)
     # save as csv
-    emissions_ind_gov.to_csv('C:/Users/geolki/OneDrive - University of Leeds/Postdoc/Gloria_detail/Gloria_' + footprint + '_industries_' + str(year) + '_governments.csv')
+    emissions_ind.to_csv('C:/Users/geolki/OneDrive - University of Leeds/Postdoc/Riepl_paper/Gloria_all/Gloria_' + footprint + '_industries_' + str(year) + '_governments.csv')
+    
+    # save for reference
+    emissions_prod = cef_g.indirect_footprint_SUT_prod(S, U, Y, stressor).T
+    emissions_prod = emissions_prod.rename(columns=country_dict, index=country_dict)
+    # save as csv
+    emissions_prod.to_csv('C:/Users/geolki/OneDrive - University of Leeds/Postdoc/Riepl_paper/Gloria_all/Gloria_' + footprint + '_products_' + str(year) + '_governments.csv')
     
     print(year)
