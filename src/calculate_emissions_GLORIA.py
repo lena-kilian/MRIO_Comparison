@@ -8,6 +8,7 @@ Created on Mon Sep 25 14:31:51 2023
 import pandas as pd
 from sys import platform
 import calculate_emissions_functions_gloria as cef_g
+import copy as cp
 
 
 # set working directory
@@ -75,7 +76,10 @@ for year in years:
         co2_filepath=gloria_filepath+gloria_version+'Env_extensions/'+co2_fname
 
     S, U, Y, stressor = cef_g.read_data_new(z_filepath, y_filepath, co2_filepath, iix, pix, industry_idx, product_idx, y_cols, stressor_row)
-
+      
+    # save final demand
+    Y.rename(columns=country_dict, index=country_dict).to_csv('C:/Users/geolki/OneDrive - University of Leeds/Postdoc/Gloria_spend/Spend/FD_Gloria_' + footprint + '_products_' + str(year) + '_all.csv')
+    '''
     # save for reference
     emissions_ind = cef_g.indirect_footprint_SUT_ind(S, U, Y, stressor).T
     emissions_ind = emissions_ind.rename(columns=country_dict, index=country_dict)
@@ -87,5 +91,5 @@ for year in years:
     emissions_prod = emissions_prod.rename(columns=country_dict, index=country_dict)
     # save as csv
     emissions_prod.to_csv('C:/Users/geolki/OneDrive - University of Leeds/Postdoc/Riepl_paper/Gloria_all/Gloria_' + footprint + '_products_' + str(year) + '_governments.csv')
-    
+    '''
     print(year)
