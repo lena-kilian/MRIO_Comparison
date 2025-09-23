@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.cm import get_cmap
+import numpy as np
 
 # set working directory
 # make different path depending on operating system
@@ -28,8 +29,10 @@ plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Postdoc/ESCoE/pl
 order_var = 'prop_imports' # 'gdp' # 'openness' # 'prop_imports' # 'ghg_cap_total' # 'ghg_cap_imports'
 same_direction_pct_cutoff = 1.5 
 
-agg_vars = ['agg_after', 'agg_before']
-levels = ['industry', 'products']
+agg_vars = ['agg_after']#, 'agg_before']
+levels = ['industry']#, 'products']
+
+econ_10 =  {'USA', 'China', 'Germany', 'Japan', 'India', 'UK', 'France', 'Italy', 'Canada', 'Brazil'}
 
 for level in levels:
     for agg_var in agg_vars:   
@@ -79,11 +82,10 @@ for level in levels:
             
         plot_data['Country'] = '                     ' + plot_data['country']
         
-        
         plot_data = plot_data.sort_values(['country_cat', 'dataset_cat'])
         
         # Scatterplot
-        fig, axs = plt.subplots(nrows=2, figsize=(15, 7.5), sharex=True)
+        fig, axs = plt.subplots(nrows=2, figsize=(15, 10), sharex=True)
         
         sns.scatterplot(ax=axs[0], data=plot_data, x='country', y='mean_co2', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
         axs[0].set_ylabel('Footprint (ktCO\N{SUBSCRIPT TWO}e)', fontsize=fs); 
@@ -102,14 +104,16 @@ for level in levels:
             axs[i].set_xlabel('', fontsize=fs)
             for c in range(len(plot_data['country'].unique())-1):
                 axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
-            
-        axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', fontsize=fs); 
+                         
+        axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', fontsize=fs)
         axs[1].xaxis.set_ticks_position('top') # the rest is the same
-        
+        for i in range(len(plot_data['country'].unique())):
+            if plot_data['country'].unique()[i] in econ_10:
+                plt.setp(axs[1].get_xticklabels()[i], weight='bold')
+
         fig.tight_layout()
         plt.savefig(plot_filepath + 'scatterplot_overview_bycountry_GHG_' + order_var + '_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
-        
         
         ###################################
         ## Change in trend - RMSE / Mean ##
@@ -124,7 +128,7 @@ for level in levels:
         
         # Histogram
         
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharey=True, sharex=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 12), sharey=True, sharex=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -155,7 +159,7 @@ for level in levels:
         
         # Histogram
         
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 12), sharex=True, sharey=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -198,7 +202,7 @@ for level in levels:
         plot_data = plot_data.sort_values(['country_cat', 'dataset'])
           
         # plot
-        fig, axs = plt.subplots(nrows=2, figsize=(15, 7.5), sharex=True)
+        fig, axs = plt.subplots(nrows=2, figsize=(15, 10), sharex=True)
         for i in range(2):
             item = plot_data['axis'].unique()[i]
             temp = plot_data.loc[(plot_data['axis'] == item)]
@@ -216,6 +220,9 @@ for level in levels:
         
         axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', fontsize=fs); 
         axs[1].xaxis.set_ticks_position('top') # the rest is the same
+        for i in range(len(plot_data['country'].unique())):
+            if plot_data['country'].unique()[i] in econ_10:
+                plt.setp(axs[1].get_xticklabels()[i], weight='bold')
         
         axs[0].set_ylim(0, 100)
         axs[1].set_ylim(0, 100)
@@ -229,7 +236,7 @@ for level in levels:
         ## Regress footprints over years ##
         ###################################
         
-        fig, axs = plt.subplots(nrows=2, figsize=(15, 8), sharex=True)
+        fig, axs = plt.subplots(nrows=2, figsize=(15, 10), sharex=True)
         for r in range(2):
             item = ['Total', 'Imports'][r]
             plot_data = reg_results[item].drop('reg_validation_pct', axis=1)
@@ -257,6 +264,9 @@ for level in levels:
             
         axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', fontsize=fs); 
         axs[1].xaxis.set_ticks_position('top') # the rest is the same
+        for i in range(len(plot_data['country'].unique())):
+            if plot_data['country'].unique()[i] in econ_10:
+                plt.setp(axs[1].get_xticklabels()[i], weight='bold')
         
         fig.tight_layout()
         plt.savefig(plot_filepath + 'scatterplot_overview_regresults_GHG_' + order_var + '_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')

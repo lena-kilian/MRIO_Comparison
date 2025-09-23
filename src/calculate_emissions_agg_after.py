@@ -41,9 +41,9 @@ stressor_sums = {};
 for item in mrio_list:
     stressor_sums[item] = pd.DataFrame(index=lookup['sectors']['combined_name'].unique())
     
-##############
-## Exiobase ##
-##############
+####################
+## Exiobase 3.8.2 ##
+####################
 
 co2_exio_prod = {}; co2_exio_ind = {}
 

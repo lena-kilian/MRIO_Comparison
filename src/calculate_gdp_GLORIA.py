@@ -7,7 +7,7 @@ Created on Mon Sep 25 14:31:51 2023
 
 import pandas as pd
 from sys import platform
-import import_function_gloria as imp_g
+import import_function_gloria_gdp as imp_g
 import numpy as np
 
 # set working directory
@@ -23,7 +23,7 @@ emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
 version = '2024'
 footprint = 'ghg'
-years = range(2005, 2020)
+years = range(2005, 2006)
 
 ############
 ## Gloria ##
@@ -37,22 +37,15 @@ row_dict = dict(zip(row_lookup['gloria_code'], row_lookup[lookup_cat]))
 config_file= wd + 'ESCoE_Project/data/MRIO/Gloria/config_large.cfg'
 gloria_filepath, outdir, lookup_filepath, labels_fname, lookup_fname, Z_fname, Y_fname, co2_fname, gloria_version = imp_g.read_config(config_file)
 
-z_idx, industry_idx, product_idx, iix, pix, y_cols, sat_rows = imp_g.get_metadata_indices(gloria_filepath, lookup_filepath, labels_fname, lookup_fname)
+z_idx, industry_idx, product_idx, iix,pix, y_cols, v_cols, sat_rows = imp_g.get_metadata_indices(gloria_filepath, lookup_filepath, labels_fname, lookup_fname)
+
 
 # define sample year, normally this is: range(2010, 2019)
 # here years is now determined from inputs,
 # it used to be a range(2010, 2019). In future work this will likley be range(2001, 2023)
+V = {}
 for year in years:
     print('start', year)
-
-    # set up filepaths
-    # file name changes from 2017, so define this here
-
-    split=Z_fname.split('%')
-    if len(split)>1:
-        z_filepath=gloria_filepath+gloria_version+split[0]+str(year)+split[1]
-    else:
-        z_filepath=gloria_filepath+gloria_version+Z_fname
 
     split=Y_fname.split('%')
     if len(split)>1:
@@ -60,27 +53,8 @@ for year in years:
     else:
         y_filepath=gloria_filepath+gloria_version+Y_fname
         
-    S, Y = imp_g.read_data_new(z_filepath, y_filepath, iix, pix, industry_idx, product_idx, y_cols)
-
-    # aggregate countries
-    S = S.rename(index=row_dict, columns=row_dict).sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
-    Y = Y.rename(index=row_dict, columns=row_dict).sum(axis=0, level=[0, 1]).sum(axis=1, level=[0, 1])
-    
-    # convert to industry by industry table
-    # Industry-by-industry input-output table based on fixed industry sales structure assumption 
-    g = S.sum(1)
-    g_diag = np.diag(g)
-    inv_Vt = np.linalg.inv(S.T)
-     
-    T = np.dot(g_diag, inv_Vt)
-    
-    F = pd.DataFrame(index=S.index)
-    for item in Y.columns.tolist():
-        Y_small = Y.loc[S.columns, item]
-        temp = np.dot(T, Y_small)
-        F[item] = temp
-    
-    # save final demand
-    F.to_csv('C:/Users/geolki/OneDrive - University of Leeds/Postdoc/Gloria_detail/Spend/FD_Gloria_industry_' + str(year) + '_Eurostat_method.csv')
-    
+    v_filepath = y_filepath.replace('_Y_', '_V_')
+        
+    V[year] = imp_g.read_data_new(v_filepath, iix, pix, industry_idx, product_idx, v_cols)
+   
     print('end', year)
