@@ -26,11 +26,11 @@ mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
 version = '2024'
-footprint = 'co2' #'ghg
+footprint = 'ghg' # 'co2'
 
 if footprint == 'co2':
     years = range(2010, 2022)
-    mrio_list = ['exio', 'figaro', 'gloria']
+    mrio_list = ['exio', 'figaro', 'oecd', 'gloria']
 elif footprint =='ghg':
     years = range(2010, 2021)
     mrio_list = ['exio', 'figaro', 'oecd', 'gloria']
@@ -411,7 +411,7 @@ for item in mrio_list:
     co2_all_prod[item] = eval('co2_' + item + '_prod')
     co2_all_ind[item] = eval('co2_' + item + '_ind')
 
-pickle.dump(co2_all_prod, open(emissions_filepath + 'Emissions_products_' + footprint + '_all_agg_after_.p', 'wb'))
+pickle.dump(co2_all_prod, open(emissions_filepath + 'Emissions_products_' + footprint + '_all_agg_after.p', 'wb'))
 pickle.dump(co2_all_ind, open(emissions_filepath + 'Emissions_industry_' + footprint + '_all_agg_after.p', 'wb'))
 
 pickle.dump(stressor_sums, open(emissions_filepath + 'Industry_emissions_' + footprint + '_from_stressor.p', 'wb'))

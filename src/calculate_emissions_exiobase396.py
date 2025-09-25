@@ -9,6 +9,7 @@ import pandas as pd
 from sys import platform
 import calculate_emissions_functions as cef
 import pickle
+import numpy as np
 
 
 # set working directory
@@ -23,14 +24,10 @@ mrio_filepath = wd + 'ESCoE_Project/data/MRIO/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 
 version = '2024'
-footprint = 'co2' #'ghg
+footprint = 'ghg' # 'co2' #
 
-if footprint == 'co2':
-    years = range(2010, 2022)
-    mrio_list = ['exio', 'figaro', 'gloria']
-elif footprint =='ghg':
-    years = range(2010, 2021)
-    mrio_list = ['exio', 'figaro', 'oecd', 'gloria']
+years = range(2010, 2022)
+mrio_list = ['exio394']
 
 lookup = pd.read_excel(wd + 'ESCoE_Project/data/lookups/mrio_lookup_sectors_countries_finaldemand.xlsx', sheet_name=None) 
 
@@ -42,16 +39,13 @@ for item in mrio_list:
 ## Exiobase 3.9.6 ##
 ####################
 
-co2_exio396_prod = {}; co2_exio396_ind = {}
+co2_exio394_prod = {}; co2_exio394_ind = {}
 
-if footprint == 'ghg':
-   stressor_var = 'GHG emissions AR5 (GWP100) | GWP100 (IPCC, 2010)'
-elif footprint == 'co2':
-    stressor_var = 'Carbon dioxide (CO2) IPCC categories 1 to 4 and 6 to 7 (excl land use, land use change and forestry)'
+stressor_var = 'GHG emissions AR5 (GWP100) | GWP100 (IPCC, 2010)' # 'Carbon dioxide (CO2) IPCC categories 1 to 4 and 6 to 7 (excl land use, land use change and forestry)'
 
 # make lookup
-lookup_country = lookup['countries'][['exio396_code', 'combined_name']].dropna(how='any').drop_duplicates()
-lookup_country = dict(zip(lookup_country['exio396_code'], lookup_country['combined_name']))
+lookup_country = lookup['countries'][['exio_code', 'combined_name']].dropna(how='any').drop_duplicates()
+lookup_country = dict(zip(lookup_country['exio_code'], lookup_country['combined_name']))
 
 lookup_sectors = lookup['sectors'][['exio', 'combined_name']].dropna(how='any').drop_duplicates()
 lookup_sectors = dict(zip(lookup_sectors['exio'], lookup_sectors['combined_name']))
@@ -59,20 +53,24 @@ lookup_sectors = dict(zip(lookup_sectors['exio'], lookup_sectors['combined_name'
 lookup_fd = lookup['final_demand'][['exio', 'combined_name']].dropna(how='any').drop_duplicates()
 lookup_fd = dict(zip(lookup_fd['exio'], lookup_fd['combined_name']))
 
+co2_raw = {}
+
 for year in years:
     
-    exio396_data = {}
+    exio394_data = {}
                   
-    filepath = wd + 'UKMRIO_Data/data/raw/EXIOBASE/3.8.2/MRSUT_' + str(year) + '/'
-            
-    exio396_data['S'] = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0, 1], index_col = [0, 1]).T
-    exio396_data['U'] = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0, 1], index_col = [0, 1])
-    exio396_data['Y'] = pd.read_csv(filepath + 'final_demand.csv', sep='\t', header = [0, 1], index_col = [0, 1])
-    exio396_data['co2'] = pd.DataFrame(pd.read_csv(filepath + 'F.txt', sep='\t', index_col=0, header=[0, 1]).loc[stressor_var, :])
+    filepath = wd + 'EXIOBASE/3.9.4/MRSUT_' + str(year) + '/'
+    filepath_emissions = wd + 'EXIOBASE/3.8.2/MRSUT_' + str(year) + '/' #wd + 'EXIOBASE/3.9.6 ixi/' + str(year) + '/air_emissions/'
+     
+    exio394_data['S'] = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0, 1], index_col = [0, 1]).T
+    exio394_data['U'] = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0, 1], index_col = [0, 1])
+    exio394_data['Y'] = pd.read_csv(filepath + 'final_demand.csv', sep='\t', header = [0, 1], index_col = [0, 1])
+    exio394_data['co2'] = pd.DataFrame(pd.read_csv(filepath_emissions + 'F.txt', sep='\t', index_col=0, header=[0, 1]).loc[stressor_var, :])
     
+    co2_raw[year] = exio394_data['co2']
     # calculate exio footprint
 
-    S = exio396_data['S']; U = exio396_data['U']; Y = exio396_data['Y']; stressor = exio396_data['co2']
+    S = exio394_data['S']; U = exio394_data['U']; Y = exio394_data['Y']; stressor = exio394_data['co2']
     
     # aggregate industries and products
     U = U.loc[S.columns, S.index]
@@ -80,7 +78,7 @@ for year in years:
     stressor = stressor.loc[S.index, stressor_var] / 1000000
     
     # save for reference
-    stressor_sums['exio'][year] = stressor.rename(index=lookup_sectors).sum(axis=0, level=1) 
+    stressor_sums['exio394'][year] = stressor.rename(index=lookup_sectors).sum(axis=0, level=1) 
     
     emissions_ind, emissions_prod = cef.indirect_footprint_SUT(S, U, Y, stressor)
     # save as csv
@@ -91,11 +89,13 @@ for year in years:
     emissions_prod = emissions_prod.T.rename(columns=lookup_country, index=lookup_country).rename(columns=lookup_fd, index=lookup_sectors).sum(axis=0, level=[0,1]).sum(axis=1, level=[0,1])
     
     # save
-    co2_exio396_ind[year] = emissions_ind
-    co2_exio396_prod[year] = emissions_prod
+    co2_exio394_ind[year] = emissions_ind
+    co2_exio394_prod[year] = emissions_prod
+    
+    print(year)
 
-pickle.dump(co2_exio396_ind, open(emissions_filepath + 'Exiobase/Exiobase_industry_' + footprint + '396_v' + version + '_agg_after.p', 'wb'))
-pickle.dump(co2_exio396_prod, open(emissions_filepath + 'Exiobase/Exiobase_products_' + footprint + '396_v' + version + '_agg_after.p', 'wb'))
+pickle.dump(co2_exio394_ind, open(emissions_filepath + 'Exiobase/Exiobase_industry_' + footprint + '394_v' + version + '_agg_after.p', 'wb'))
+pickle.dump(co2_exio394_prod, open(emissions_filepath + 'Exiobase/Exiobase_products_' + footprint + '394_v' + version + '_agg_after.p', 'wb'))
 
 print('Exiobase Done')
 
@@ -109,8 +109,11 @@ co2_all_ind = {}
 for item in mrio_list:
     co2_all_prod[item] = eval('co2_' + item + '_prod')
     co2_all_ind[item] = eval('co2_' + item + '_ind')
+    
+    for year in years:
+        print(year, np.round(co2_all_ind[item][year].sum().sum()), np.round(co2_raw[year].sum().sum()))
 
-pickle.dump(co2_all_prod, open(emissions_filepath + 'Emissions_products_' + footprint + '_exio396_agg_after.p', 'wb'))
-pickle.dump(co2_all_ind, open(emissions_filepath + 'Emissions_industry_' + footprint + '_exio396_agg_after.p', 'wb'))
+pickle.dump(co2_all_prod, open(emissions_filepath + 'Emissions_products_' + footprint + '_exio394_agg_after.p', 'wb'))
+pickle.dump(co2_all_ind, open(emissions_filepath + 'Emissions_industry_' + footprint + '_exio394_agg_after.p', 'wb'))
 
-pickle.dump(stressor_sums, open(emissions_filepath + 'Industry_emissions_' + footprint + '_exio396_from_stressor.p', 'wb'))
+pickle.dump(stressor_sums, open(emissions_filepath + 'Industry_emissions_' + footprint + '_exio394_from_stressor.p', 'wb'))
