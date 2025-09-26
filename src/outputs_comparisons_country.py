@@ -24,7 +24,7 @@ else:
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
-plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Postdoc/ESCoE/plots/'
+plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Leeds onedrive/Postdoc/ESCoE/plots/'
 
 order_var = 'prop_imports' # 'gdp' # 'openness' # 'prop_imports' # 'ghg_cap_total' # 'ghg_cap_imports'
 same_direction_pct_cutoff = 1.5 
@@ -37,8 +37,8 @@ econ_10 =  {'USA', 'China', 'Germany', 'Japan', 'India', 'UK', 'France', 'Italy'
 for level in levels:
     for agg_var in agg_vars:   
         # import data
-        summary_co2 = pickle.load(open(outputs_filepath + 'summary_co2_country_' + level + '_' + agg_var + '.p', 'rb'))
-        mean_co2 = pickle.load(open(outputs_filepath + 'mean_co2_country_' + level + '_' + agg_var + '.p', 'rb'))
+        summary_ghg = pickle.load(open(outputs_filepath + 'summary_ghg_country_' + level + '_' + agg_var + '.p', 'rb'))
+        mean_ghg = pickle.load(open(outputs_filepath + 'mean_ghg_country_' + level + '_' + agg_var + '.p', 'rb'))
         rmse_pct = pickle.load(open(outputs_filepath + 'rmse_pct_country_' + level + '_' + agg_var + '.p', 'rb'))
         direction = pickle.load(open(outputs_filepath + 'direction_annual_country_' + level + '_' + agg_var + '.p', 'rb'))
         reg_results = pickle.load(open(outputs_filepath + 'regression_country_' + level + '_' + agg_var + '.p', 'rb'))
@@ -47,8 +47,8 @@ for level in levels:
         reg_fit = {item:pd.read_csv(outputs_filepath + 'regression_country_linearity_AIC_' + item + '_' + level + '.csv') for item in ['Total', 'Imports']}
         
         country_order = pickle.load(open(outputs_filepath + 'country_order_' + level + '_' + agg_var + '.p', 'rb'))[order_var]
-        datasets = summary_co2['Total'].columns.tolist(); datasets.sort()
-        years = summary_co2['Total'].index.levels[0].tolist()
+        datasets = summary_ghg['Total'].columns.tolist(); datasets.sort()
+        years = summary_ghg['Total'].index.levels[0].tolist()
         
         data_comb = []
         for i in range(len(datasets)):
@@ -63,19 +63,19 @@ for level in levels:
         point_size = 20
         scatter_size = 100
         pal = 'tab10'
-        marker_list = ["o", "X", "s", "P"]
+        marker_list = ["o", "X", "s", "P", "v"]
         
         ##########################
         ## Total & Pct imported ##
         ##########################
         
         # global imports
-        percent_im_global = summary_co2['Imports'].sum(axis=0, level=1).mean(axis=0) / summary_co2['Total'].sum(axis=0, level=1).mean(axis=0) * 100
+        percent_im_global = summary_ghg['Imports'].sum(axis=0, level=1).mean(axis=0) / summary_ghg['Total'].sum(axis=0, level=1).mean(axis=0) * 100
         
         # country imports
-        percent_im = pd.DataFrame((summary_co2['Imports'].mean(axis=0, level=0) / summary_co2['Total'].mean(axis=0, level=0) * 100)\
+        percent_im = pd.DataFrame((summary_ghg['Imports'].mean(axis=0, level=0) / summary_ghg['Total'].mean(axis=0, level=0) * 100)\
                                   .stack()).reset_index().rename(columns={'level_1':'dataset', 0:'pct_im'})
-        plot_data = mean_co2['Total'].stack().reset_index().rename(columns={'level_1':'dataset', 0:'mean_co2'})\
+        plot_data = mean_ghg['Total'].stack().reset_index().rename(columns={'level_1':'dataset', 0:'mean_ghg'})\
             .merge(percent_im, on=['country', 'dataset'])
         plot_data['country_cat'] = pd.Categorical(plot_data['country'], categories=country_order, ordered=True)
         plot_data['dataset_cat'] = pd.Categorical(plot_data['dataset'], categories=datasets, ordered=True)
@@ -87,7 +87,7 @@ for level in levels:
         # Scatterplot
         fig, axs = plt.subplots(nrows=2, figsize=(15, 10), sharex=True)
         
-        sns.scatterplot(ax=axs[0], data=plot_data, x='country', y='mean_co2', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
+        sns.scatterplot(ax=axs[0], data=plot_data, x='country', y='mean_ghg', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
         axs[0].set_ylabel('Footprint (ktCO\N{SUBSCRIPT TWO}e)', fontsize=fs); 
         axs[0].set_yscale('log')
         
@@ -128,7 +128,7 @@ for level in levels:
         
         # Histogram
         
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 12), sharey=True, sharex=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 15), sharey=True, sharex=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -159,7 +159,7 @@ for level in levels:
         
         # Histogram
         
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 12), sharex=True, sharey=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 15), sharex=True, sharey=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -282,14 +282,14 @@ for level in levels:
         fig, axs = plt.subplots(nrows=len(country_order), ncols=2, figsize=(10, 120))
         for c in range(2):
             item = ['Total', 'Imports'][c]
-            temp = summary_co2[item]
+            temp = summary_ghg[item]
             
             for r in range(len(country_order)):
                 country = country_order[r]
-                plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tCO2'})
-                sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tCO2', hue='Datasets', legend=False)
+                plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tghg'})
+                sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tghg', hue='Datasets', legend=False)
                 axs[r, c].set_title(country + ' - ' + item, fontsize=fs)
-        plt.savefig(plot_filepath + 'Lineplot_CO2_all_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'Lineplot_ghg_all_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
         '''
         

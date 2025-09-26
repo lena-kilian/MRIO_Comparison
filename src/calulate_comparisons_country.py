@@ -27,23 +27,23 @@ outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 
 # Dictonaries
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
-data_dict = {'oecd':'ICIO', 'exio':'Exiobase 3.8.2', 'exio394':'Exiobase 3.9.4', 'figaro':'Figaro','gloria':'Gloria'}
+data_dict = {'oecd':'ICIO', 'exio':'Exio. 3.8.2', 'exio394':'Exio. 3.9.4', 'figaro':'Figaro','gloria':'Gloria'}
 
 ##################
 ## Run Analysis ##
 ##################
 
 # load data
-co2_all = pickle.load(open(emissions_filepath + 'Emissions_industry_ghg_all_agg_after.p', 'rb'))
-co2_all['exio394'] = pickle.load(open(emissions_filepath + 'Emissions_industry_ghg_exio394_agg_after.p', 'rb'))['exio394']
+ghg_all = pickle.load(open(emissions_filepath + 'Emissions_industry_ghg_all_agg_after.p', 'rb'))
+ghg_all['exio394'] = pickle.load(open(emissions_filepath + 'Emissions_industry_ghg_exio394_agg_after.p', 'rb'))['exio394']
 
 ######### REMOVE THIS LATER
-co2_all = {data:co2_all[data] for data in list(data_dict.keys())}
+ghg_all = {data:ghg_all[data] for data in list(data_dict.keys())}
 ################
 
 # Variable lookups
 datasets = list(data_dict.values()); datasets.sort()
-years = list(co2_all[list(data_dict.keys())[0]].keys())
+years = list(ghg_all[list(data_dict.keys())[0]].keys())
 
 data_comb = []
 for i in range(len(datasets)):
@@ -58,11 +58,11 @@ for i in range(len(datasets)):
 # Total
 summary = pd.DataFrame()
 for year in years:
-    temp_oecd = pd.DataFrame(co2_all['oecd'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'oecd'})
-    temp_figaro = pd.DataFrame(co2_all['figaro'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'figaro'})
-    temp_gloria = pd.DataFrame(co2_all['gloria'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'gloria'})
-    temp_exio = pd.DataFrame(co2_all['exio'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio'})
-    temp_exio394 = pd.DataFrame(co2_all['exio394'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio394'})
+    temp_oecd = pd.DataFrame(ghg_all['oecd'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'oecd'})
+    temp_figaro = pd.DataFrame(ghg_all['figaro'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'figaro'})
+    temp_gloria = pd.DataFrame(ghg_all['gloria'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'gloria'})
+    temp_exio = pd.DataFrame(ghg_all['exio'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio'})
+    temp_exio394 = pd.DataFrame(ghg_all['exio394'][year].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:'exio394'})
     # merge all
     temp = temp_oecd.join(temp_figaro, how='outer').join(temp_exio, how='outer').join(temp_exio394, how='outer').join(temp_gloria, how='outer').fillna(0)
     temp['year'] = year
@@ -74,7 +74,7 @@ summary_im = pd.DataFrame()
 for year in years:
     temp = {}
     for item in list(data_dict.keys()):
-        temp[item] = co2_all[item][year]
+        temp[item] = ghg_all[item][year]
         for country in temp[item].index.levels[0]:
             temp[item].loc[country, country] = 0
         temp[item] = pd.DataFrame(temp[item].sum(axis=1, level=0).sum(axis=0)).rename(columns={0:item})
@@ -84,15 +84,15 @@ for year in years:
     summary_im = summary_im.append(temp_all.reset_index())
 summary_im = summary_im.rename(columns={'index':'country'}).set_index(['country', 'year']).rename(index=country_dict).rename(columns=data_dict)
 
-summary_co2 = {'Total':summary, 'Imports':summary_im}
+summary_ghg = {'Total':summary, 'Imports':summary_im}
 # save
-pickle.dump(summary_co2, open(outputs_filepath + 'summary_co2_country_industry_agg_after.p', 'wb'))
+pickle.dump(summary_ghg, open(outputs_filepath + 'summary_ghg_country_industry_agg_after.p', 'wb'))
 
 # Get means
-mean_co2 = {'Total' : summary.mean(axis=0, level='country').rename(columns=data_dict, index=country_dict), 
+mean_ghg = {'Total' : summary.mean(axis=0, level='country').rename(columns=data_dict, index=country_dict), 
             'Imports' : summary_im.mean(axis=0, level='country').rename(columns=data_dict, index=country_dict)}
 # save
-pickle.dump(mean_co2, open(outputs_filepath + 'mean_co2_country_industry_agg_after.p', 'wb'))
+pickle.dump(mean_ghg, open(outputs_filepath + 'mean_ghg_country_industry_agg_after.p', 'wb'))
 
 ####################
 ## Sort countries ##
@@ -104,7 +104,7 @@ prop_im = (summary_im / summary * 100).mean(axis=0, level='country').mean(axis=1
 prop_order = prop_im.sort_values('prop_imported', ascending=False).set_index('country').rename(index=country_dict).index.tolist()
 
 # GDP
-country_list = pd.DataFrame(mean_co2['Total'].index).set_index('country')
+country_list = pd.DataFrame(mean_ghg['Total'].index).set_index('country')
 country_list['index_test'] = 1
 # GDP data https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
 gdp = pd.DataFrame(pd.read_csv(data_filepath + 'GDP/GDP.csv', header=4, index_col=0)[[str(x) for x in years]].mean(1)).dropna(0)\
@@ -258,10 +258,10 @@ for item in ['Total', 'Imports']:
     # Total emissions
     # test which fit is best linear, quadratic, cubic
     reg_fit = pd.DataFrame()
-    for country in summary_co2[item].index.levels[0]:
+    for country in summary_ghg[item].index.levels[0]:
         for ds in datasets:
         
-            temp = summary_co2[item].loc[country, ds].reset_index()
+            temp = summary_ghg[item].loc[country, ds].reset_index()
             #temp = temp.loc[temp['year'] != year]
             
             y = temp[ds]
@@ -300,10 +300,10 @@ for item in ['Total', 'Imports']:
     reg_check = pd.DataFrame()
     # Sense check with individual years removed
     for year in years + [0]:
-        for country in summary_co2[item].index.levels[0]:
+        for country in summary_ghg[item].index.levels[0]:
             for ds in datasets:
             
-                temp = summary_co2[item].loc[country, ds].reset_index()
+                temp = summary_ghg[item].loc[country, ds].reset_index()
                 temp = temp.loc[temp['year'] != year]
                 
                 y = temp[ds]
@@ -337,8 +337,8 @@ for item in ['Total', 'Imports']:
     reg_results = reg_results.set_index(['country', 'ds']).unstack().droplevel(axis=1, level=0)
     
     reg_result2 = cp.copy(reg_results)
-    reg_result2['mean_co2'] = summary.reset_index('country').groupby('country').mean().mean(1)
-    reg_result2 = reg_result2.apply(lambda x: x/reg_result2['mean_co2'] *100).drop('mean_co2', axis=1)
+    reg_result2['mean_ghg'] = summary.reset_index('country').groupby('country').mean().mean(1)
+    reg_result2 = reg_result2.apply(lambda x: x/reg_result2['mean_ghg'] *100).drop('mean_ghg', axis=1)
     
     temp = reg_result2.T.describe().T[['max', 'min']]
     temp['Same direction'] = True

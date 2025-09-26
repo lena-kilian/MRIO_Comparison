@@ -25,7 +25,7 @@ else:
 data_filepath = wd + 'ESCoE_Project/data/'
 emissions_filepath = wd + 'ESCoE_Project/data/Emissions/'
 outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
-plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Postdoc/ESCoE/plots/'
+plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Leeds onedrive/Postdoc/ESCoE/plots/'
     
 # define number of top sectors to include
 n = 10
@@ -43,7 +43,7 @@ c_vlines = '#6d6d6d'
 point_size = 30
 scatter_size = 100
 pal = 'tab10'
-marker_list = ["o", "X", "s", "P"]
+marker_list = ["o", "X", "s", "P", "v"]
 
 top_sectors = {'Total' : ['Total', 'Electricity &\ngas', 'Agriculture &\nforestry', 'Mining', 'Other non-\nmetallic minerals', 'Basic metals',
                      'Water supply &\nwaste management', 'Chemicals &\nparmaceuticals', 'Land & pipeline\ntransport', 'Coke & refined\npetroleum',
@@ -80,7 +80,7 @@ for level in levels:
                 [['min', '50%']].unstack(level=1)
                                                                                        
         # Plot Histogram
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 10), sharex=True, sharey=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 14), sharex=True, sharey=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -103,7 +103,7 @@ for level in levels:
             axs[r, c].tick_params(axis='x', labelsize=fs)
             axs[0, c].set_title(item, fontsize=fs)
         fig.tight_layout()
-        plt.savefig(plot_filepath + 'histplot_CO2_sector_corr_by_data_GHG_' + level + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'histplot_ghg_sector_corr_by_data_GHG_' + level + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show() 
         
         #################
@@ -138,7 +138,7 @@ for level in levels:
         #order_list.remove('Households as employers')
     
         
-        fig, axs = plt.subplots(figsize=(10, 14), ncols=2, sharey=True)
+        fig, axs = plt.subplots(figsize=(10, 18), ncols=2, sharey=True)
         for i in range(2):
             item = ['Total', 'Imports'][i]
             
@@ -164,7 +164,7 @@ for level in levels:
         #axs[0].yaxis.set_ticks_position('right') # the rest is the same
             
         fig.tight_layout()
-        plt.savefig(plot_filepath + 'pointplot_CO2_global_by_sector_GHG_ALL_ordered_' + order_by + '_'  + level + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'pointplot_ghg_global_by_sector_GHG_ALL_ordered_' + order_by + '_'  + level + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
         
         ####################
@@ -207,7 +207,7 @@ for level in levels:
         axs[0].get_legend().remove()
             
         fig.tight_layout()
-        plt.savefig(plot_filepath + 'pointplot_CO2_global_by_sector_GHG_'  + level + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.savefig(plot_filepath + 'pointplot_ghg_global_by_sector_GHG_'  + level + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
         
         
