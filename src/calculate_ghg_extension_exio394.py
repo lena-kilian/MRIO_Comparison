@@ -46,5 +46,5 @@ for year in years:
 # reformat and save
 
 for year in years:
-    temp = extensions_ghg[year].rename(columns={0:'GHG emissions AR5 (GWP100)|kg CO2 eq.||GWP100 (IPCC, 2010)'}).T
+    temp = extensions_ghg[year].rename(columns={0:var_extension}).T
     temp.to_csv('O:/EXIOBASE/3.9.6_processed_GHG/' + str(year) + '.csv')

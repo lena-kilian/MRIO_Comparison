@@ -41,7 +41,8 @@ for item in mrio_list:
 
 co2_exio394_prod = {}; co2_exio394_ind = {}
 
-stressor_var = 'GHG emissions AR5 (GWP100) | GWP100 (IPCC, 2010)' # 'Carbon dioxide (CO2) IPCC categories 1 to 4 and 6 to 7 (excl land use, land use change and forestry)'
+stressor_var = 'GHG emissions AR5 (GWP100)|kg CO2 eq.||GWP100 (IPCC, 2010)'
+
 
 # make lookup
 lookup_country = lookup['countries'][['exio_code', 'combined_name']].dropna(how='any').drop_duplicates()
@@ -60,12 +61,12 @@ for year in years:
     exio394_data = {}
                   
     filepath = wd + 'EXIOBASE/3.9.4/MRSUT_' + str(year) + '/'
-    filepath_emissions = wd + 'EXIOBASE/3.8.2/MRSUT_' + str(year) + '/' #wd + 'EXIOBASE/3.9.6 ixi/' + str(year) + '/air_emissions/'
+    filepath_emissions = wd + 'EXIOBASE/3.9.6_processed_GHG/' + str(year) + '.csv'
      
     exio394_data['S'] = pd.read_csv(filepath + 'supply.csv', sep='\t', header = [0, 1], index_col = [0, 1]).T
     exio394_data['U'] = pd.read_csv(filepath + 'use.csv', sep='\t', header = [0, 1], index_col = [0, 1])
     exio394_data['Y'] = pd.read_csv(filepath + 'final_demand.csv', sep='\t', header = [0, 1], index_col = [0, 1])
-    exio394_data['co2'] = pd.DataFrame(pd.read_csv(filepath_emissions + 'F.txt', sep='\t', index_col=0, header=[0, 1]).loc[stressor_var, :])
+    exio394_data['co2'] = pd.DataFrame(pd.read_csv(filepath_emissions, index_col=0, header=[0, 1]).loc[stressor_var, :])
     
     co2_raw[year] = exio394_data['co2']
     # calculate exio footprint
