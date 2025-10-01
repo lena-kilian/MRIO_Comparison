@@ -27,7 +27,7 @@ outputs_filepath = wd + 'ESCoE_Project/outputs/compare_all_outputs/'
 
 # Dictonaries
 country_dict = {'United Kingdom':'UK', 'Czech Republic':'Czechia', 'United States':'USA', 'Rest of the World':'RoW'}
-data_dict = {'oecd':'ICIO', 'exio':'Exio. 3.8.2', 'exio394':'Exio. 3.9.4', 'figaro':'Figaro', 'gloria':'Gloria'}
+data_dict = {'oecd':'ICIO', 'exio':'Exio. 3.8.2', 'exio394':'Exio. 3.9.6', 'figaro':'Figaro', 'gloria':'Gloria'}
 
 ind_dict = {
     'Accommodation and food service activities' : 'Accommodation &\nfood services',
