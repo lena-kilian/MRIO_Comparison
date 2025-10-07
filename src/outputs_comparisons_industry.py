@@ -55,6 +55,7 @@ top_sectors = {'Total' : ['Total', 'Electricity &\ngas', 'Agriculture &\nforestr
 top_corr = {}
 for level in levels:
     for agg_var in agg_vars:
+        all_plot_data = {}
         # Load Data
         summary_industry = pickle.load(open(outputs_filepath + 'summary_' + level + agg_var + '.p', 'rb'))
         corr = pickle.load(open(outputs_filepath + 'corr_' + level + agg_var + '.p', 'rb'))
@@ -78,13 +79,18 @@ for level in levels:
             top_corr[item] = pd.DataFrame(corr_detail[item][top_sectors[item]].stack()).rename(columns={0:item})
             top_corr[item] = top_corr[item].reset_index().groupby(['country', 'industry']).describe()[item]\
                 [['min', '50%']].unstack(level=1)
-                                                                                       
+        
+        all_plot_data['fig. 5'] = pd.DataFrame()
         # Plot Histogram
         fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 16), sharex=True, sharey=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
                 plot_data = corr[item].loc[corr[item]['Data'] == data_comb[r]]
+                temp = cp.copy(plot_data)
+                temp['Type'] = item
+                all_plot_data['fig. 5'] = all_plot_data['fig. 5'].append(temp)
+                
                 sns.histplot(ax=axs[r, c], data=plot_data, x='spearman', binwidth=0.05, color=get_cmap(pal)(c), alpha=0.5)
                 axs[r, c].axvline(plot_data.median().values, c='k', linestyle=':', linewidth=2)
                 axs[r, c].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
@@ -99,6 +105,8 @@ for level in levels:
         fig.tight_layout()
         plt.savefig(plot_filepath + 'histplot_ghg_sector_corr_by_data_GHG_' + level + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show() 
+        
+        all_plot_data['fig. 5'] = all_plot_data['fig. 5'].set_index(['Type', 'country', 'Data'], append=True).unstack(level='Type')
         
         #################
         ## Corr Detail ##
@@ -122,6 +130,7 @@ for level in levels:
         ##################
         
         # get mean emissions by sector
+        all_plot_data['fig. 4'] = pd.DataFrame()
         
         sums = summary_industry[order_by].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
         sums['Total'] = sums.sum(1)
@@ -136,12 +145,19 @@ for level in levels:
             sums = summary_industry[item].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
             sums['Total'] = sums.sum(1)
             sums = sums.T.stack('year')
+            
+            sums = sums.groupby('industry').mean()
         
-            sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
+            sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_1':'Data'})
             sums.loc[sums[0] < 1, 0] = 1
             
+            temp = cp.copy(sums)
+            temp['Type'] = item
+            all_plot_data['fig. 4'] = all_plot_data['fig. 4'].append(temp)
+            
+            
             # plot    
-            sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar=None,
+            sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar='se',
                           errwidth=0, markersize=point_size, palette=pal, markers=marker_list)
             
             axs[i].set_title(item)
@@ -154,6 +170,9 @@ for level in levels:
         fig.tight_layout()
         plt.savefig(plot_filepath + 'pointplot_ghg_global_by_sector_GHG_ALL_ordered_' + order_by + '_'  + level + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
+        
+        all_plot_data['fig. 4'] = all_plot_data['fig. 4'].set_index(['Type', 'industry', 'Data'], append=True).unstack(level='Type')
+        
         
         ####################
         ## Industry Top n ##
@@ -168,6 +187,7 @@ for level in levels:
             sums = summary_industry[item].sum(axis=0, level=['industry', 'year'])[datasets].unstack('year').T
             sums['Total'] = sums.sum(1)
             sums = sums.T.stack('year')
+            sums = sums.groupby('industry').mean()
             
             order = pd.DataFrame(sums.mean(axis=0, level='industry').mean(1)).sort_values(0, ascending=False)
             order['cumsum'] = order[0].cumsum()
@@ -177,7 +197,7 @@ for level in levels:
             
             order_list = order.iloc[:n+1].index.tolist()
             
-            sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
+            sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_1':'Data'})
             
             # plot    
             sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar=None,

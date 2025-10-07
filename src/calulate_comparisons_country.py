@@ -251,6 +251,26 @@ pickle.dump(data_direction, open(outputs_filepath + 'direction_annual_country_in
 
 
 ###################################
+## Change in trend - Correlation ##
+###################################
+
+# Total
+data_corr = summary.groupby('country').corr().stack().reset_index().rename(columns={0:'Corr'})
+data_corr['dataset'] = data_corr['level_1'] + ', ' + data_corr['level_2']
+data_corr = data_corr.loc[data_corr['dataset'].isin(data_comb) == True][['country', 'dataset', 'Corr']]
+
+# Imports
+data_corr_im = summary_im.groupby('country').corr().stack().reset_index().rename(columns={0:'Corr'})
+data_corr_im['dataset'] = data_corr_im['level_1'] + ', ' + data_corr_im['level_2']
+data_corr_im = data_corr_im.loc[data_corr_im['dataset'].isin(data_comb) == True][['country', 'dataset', 'Corr']]
+
+# Combine all
+data_direction = {'Total':data_corr, 'Imports':data_corr_im}
+
+# save
+pickle.dump(data_direction, open(outputs_filepath + 'corr_country_industry_agg_after.p', 'wb'))
+
+###################################
 ## Regress footprints over years ##
 ###################################
 

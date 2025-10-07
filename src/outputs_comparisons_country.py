@@ -11,7 +11,6 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.cm import get_cmap
-import numpy as np
 
 # set working directory
 # make different path depending on operating system
@@ -35,12 +34,14 @@ levels = ['industry']#, 'products']
 econ_10 =  {'USA', 'China', 'Germany', 'Japan', 'India', 'UK', 'France', 'Italy', 'Canada', 'Brazil'}
 
 for level in levels:
-    for agg_var in agg_vars:   
+    for agg_var in agg_vars:  
+        all_plot_data = {}
         # import data
         summary_ghg = pickle.load(open(outputs_filepath + 'summary_ghg_country_' + level + '_' + agg_var + '.p', 'rb'))
         mean_ghg = pickle.load(open(outputs_filepath + 'mean_ghg_country_' + level + '_' + agg_var + '.p', 'rb'))
         rmse_pct = pickle.load(open(outputs_filepath + 'rmse_pct_country_' + level + '_' + agg_var + '.p', 'rb'))
         direction = pickle.load(open(outputs_filepath + 'direction_annual_country_' + level + '_' + agg_var + '.p', 'rb'))
+        correlation = pickle.load(open(outputs_filepath + 'corr_country_' + level + '_' + agg_var + '.p', 'rb'))
         reg_results = pickle.load(open(outputs_filepath + 'regression_country_' + level + '_' + agg_var + '.p', 'rb'))
         
         reg_validation = pickle.load(open(outputs_filepath + 'regression_validation_' + level + '_' + agg_var + '.p', 'rb'))
@@ -117,6 +118,8 @@ for level in levels:
         plt.savefig(plot_filepath + 'scatterplot_overview_bycountry_GHG_' + order_var + '_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
         
+        all_plot_data['fig. 1'] = plot_data
+        
         ###################################
         ## Change in trend - RMSE / Mean ##
         ###################################
@@ -150,6 +153,45 @@ for level in levels:
         plt.savefig(plot_filepath + 'histplot_similarity_bydata_rmse_pct_GHG_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show() 
         
+        med_nrmse = plot_data.groupby(['Type', 'dataset']).median().unstack(level=0)
+        
+        all_plot_data['fig. 2a'] = plot_data
+        
+        ###################################
+        ## Change in trend - Correlation ##
+        ##########################''#######
+        
+        plot_data = correlation['Total']; plot_data['Type'] = 'Total'
+        temp = correlation['Imports']; temp['Type'] = 'Imports'
+        
+        plot_data = plot_data.append(temp)
+        
+        # Histogram
+        
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 18), sharex=True, sharey=True)
+        for c in range(2):
+            item = ['Total', 'Imports'][c]
+            for r in range(len(data_comb)):
+                temp = plot_data.loc[(plot_data['Type'] == item) & (plot_data['dataset'] == data_comb[r])]
+                sns.histplot(ax=axs[r, c], data=temp, x='Corr', binwidth=0.15, color=get_cmap(pal)(c), alpha=0.5)
+                axs[r, c].set_ylabel(data_comb[r].replace(', ', ',\n'), fontsize=fs)
+                axs[r, c].axvline(temp.median()['Corr'], c='k', linestyle=':', linewidth=2)
+                #y_labels =[int(y) for y in axs[r, c].get_yticks()]
+                #axs[r, 0].set_yticklabels(y_labels, fontsize=fs);
+                axs[r, 0].tick_params(axis='y', labelsize=fs)
+            #x_labels = [int(x) for x in axs[r, c].get_xticks()]
+            #axs[r, c].set_xticklabels(x_labels, fontsize=fs); 
+            axs[r, c].tick_params(axis='x', labelsize=fs)
+            axs[0, c].set_title(item, fontsize=fs)
+            axs[r, c].set_xlabel("Correlation Coefficient", fontsize=fs)
+        fig.tight_layout()
+        plt.savefig(plot_filepath + 'histplot_similarity_bydata_corr_GHG_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.show() 
+        
+        med_corr = plot_data.groupby(['Type', 'dataset']).median().unstack(level=0)
+        
+        all_plot_data['fig. 2b'] = plot_data
+        
         #################################
         ## Change in trend - Direction ##
         #################################
@@ -176,10 +218,12 @@ for level in levels:
             #axs[r, c].set_xticklabels(x_labels, fontsize=fs); 
             axs[r, c].tick_params(axis='x', labelsize=fs)
             axs[0, c].set_title(item, fontsize=fs)
-            axs[r, c].set_xlabel("Year-on-year Directional\nSimilarity (%)", fontsize=fs)
+            axs[r, c].set_xlabel("Year-on-year Direction\nAgreement (%)", fontsize=fs)
         fig.tight_layout()
         plt.savefig(plot_filepath + 'histplot_similarity_bydata_direction_GHG_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show() 
+        
+        all_plot_data['fig. 2c'] = plot_data
         
         #################################
         ## Combine NRMSE and Direction ##
@@ -280,6 +324,15 @@ for level in levels:
             reg_output_values = reg_output_values.append(temp)
             
         reg_output_values = reg_output_values.set_index('item', append=True).unstack().loc[country_order]
+        
+        
+        all_plot_data['fig. 3'] = reg_results['percent']['Total']
+        all_plot_data['fig. 3']['Type'] = 'Total'
+        
+        temp = reg_results['percent']['Imports']
+        temp['Type'] = 'Imports'
+        
+        all_plot_data['fig. 3'] = all_plot_data['fig. 3'].append(temp).set_index('Type', append=True).unstack(level='country').T
         
         #############################
         ## Longitudinal footprints ##

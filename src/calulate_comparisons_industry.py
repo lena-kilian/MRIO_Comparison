@@ -74,7 +74,27 @@ ind_dict = {
 # load data
 ghg_all = pickle.load(open(emissions_filepath + 'Emissions_industry_all_agg_after.p', 'rb'))
 ghg_all['exio394'] = pickle.load(open(emissions_filepath + 'Emissions_industry_ghg_exio394_agg_after.p', 'rb'))['exio394']    
-
+'''
+full_data = pd.DataFrame()
+for item in list(ghg_all.keys()):
+    for y in list(ghg_all[item].keys()):
+        if y != 2021:
+            temp = ghg_all[item][y]
+            temp = temp.sum(axis=1, level=0)
+            temp.index.names = ['prod_c', 'prod_ind']
+            temp.columns.names = ['region']
+            temp = temp.stack().reset_index()
+            temp['Origin'] = 'Imported'
+            temp.loc[temp['prod_c'] == temp['region'], 'Origin'] = 'Domestic'
+            temp = temp.groupby(['region', 'prod_ind', 'Origin']).sum().rename(columns={0:'GHG'}).reset_index()
+            temp['year'] = y
+            temp['Dataset'] = item
+            
+            full_data = full_data.append(temp)
+    
+full_data = full_data.set_index(['region', 'prod_ind', 'Origin', 'year', 'Dataset']).unstack(['Dataset', 'Origin']).astype(float).fillna(0)
+full_data.to_csv('C:/Users/geolki/OneDrive - University of Leeds/Leeds onedrive/Postdoc/ESCoE/plots/all_data.csv')
+'''
 ######### REMOVE THIS LATER
 ghg_all = {data:ghg_all[data] for data in list(data_dict.keys())}
 ################
