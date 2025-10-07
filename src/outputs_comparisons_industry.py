@@ -31,16 +31,16 @@ plot_filepath = 'C:/Users/geolki/OneDrive - University of Leeds/Leeds onedrive/P
 n = 10
 
 # define when aggregation happends
-agg_vars = ['_agg_after']#, '_agg_before']
-order_by = 'Total' # 'Imports' #
-levels = ['industry']#, 'products']
+agg_vars = ['_agg_after']
+order_by = 'Total' 
+levels = ['industry']
 
 # plot params
 fs = 16
 pal = 'colorblind'
 c_box = '#000000'
 c_vlines = '#6d6d6d'
-point_size = 30
+point_size = 4.5
 scatter_size = 100
 pal = 'tab10'
 marker_list = ["o", "X", "s", "P", "v"]
@@ -80,7 +80,7 @@ for level in levels:
                 [['min', '50%']].unstack(level=1)
                                                                                        
         # Plot Histogram
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 14), sharex=True, sharey=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 16), sharex=True, sharey=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -92,14 +92,8 @@ for level in levels:
                     axs[r, c].set_xlim(0.3, 1.02)
                 else:
                     axs[r, c].set_xlim(0.5, 1.02)
-                #y_labels =[int(y) for y in axs[r, c].get_yticks()]
-                #y_labels = [0, 10, 20, 30, 40]
-                #print(y_labels)
-                #axs[r, c].set_yticklabels(y_labels, fontsize=fs); 
                 axs[r, c].tick_params(axis='y', labelsize=fs)
             axs[r, c].set_xlabel("Spearman's Rho", fontsize=fs)
-            #x_labels = [round(x, 2) for x in axs[r, c].get_xticks()]
-            #axs[r, c].set_xticklabels(x_labels, fontsize=fs); 
             axs[r, c].tick_params(axis='x', labelsize=fs)
             axs[0, c].set_title(item, fontsize=fs)
         fig.tight_layout()
@@ -134,9 +128,6 @@ for level in levels:
         sums = sums.T.stack('year')    
         order = pd.DataFrame(sums.mean(axis=0, level='industry').median(1)).sort_values(0, ascending=False)
         order_list = order.index.tolist()
-        #order_list.remove('Extraterritorial organisations')
-        #order_list.remove('Households as employers')
-    
         
         fig, axs = plt.subplots(figsize=(10, 18), ncols=2, sharey=True)
         for i in range(2):
@@ -159,9 +150,6 @@ for level in levels:
             axs[i].set_xscale('log')
             for j in range(len(order_list)):
                 axs[i].axhline(0.5+j, c='k', linestyle=':')
-                
-        #axs[0].set_yticklabels(['        ' + x for x in order_list], ha='center'); 
-        #axs[0].yaxis.set_ticks_position('right') # the rest is the same
             
         fig.tight_layout()
         plt.savefig(plot_filepath + 'pointplot_ghg_global_by_sector_GHG_ALL_ordered_' + order_by + '_'  + level + agg_var + '.png', dpi=200, bbox_inches='tight')
@@ -192,14 +180,12 @@ for level in levels:
             sums = pd.DataFrame(sums.stack()).loc[order_list].reset_index().rename(columns={'level_2':'Data'})
             
             # plot    
-            #sns.stripplot(ax=axs[i], data = sums, x=0, y='industry', hue='level_2', dodge=True, alpha=.2, , palette=pal)
             sns.pointplot(ax=axs[i], data = sums, x=0, y='industry', hue='Data', dodge=0.6, linestyles='', errorbar=None,
                           errwidth=0, markersize=point_size, palette=pal, markers=marker_list)
             
             axs[i].set_title(item)
             axs[i].set_ylabel('')
             axs[i].set_xlabel('ktCO\N{SUBSCRIPT TWO}e')
-            #axs[i].set_xscale('log')
             for j in range(n+1):
                 axs[i].axhline(0.5+j, c='k', linestyle=':')
                 
@@ -277,5 +263,3 @@ for level in levels:
         industry_prop_top[('summary', 'Imports_mean')] = industry_prop_top['Imports'].mean(1)   
         industry_prop_top[('summary', 'Total_sd')] = industry_prop_top['Total'].std(1)
         industry_prop_top[('summary', 'Imports_sd')] = industry_prop_top['Imports'].std(1)   
-        #industry_prop_top = industry_prop_top['summary']
-        

@@ -88,10 +88,12 @@ for level in levels:
         fig, axs = plt.subplots(nrows=2, figsize=(15, 10), sharex=True)
         
         sns.scatterplot(ax=axs[0], data=plot_data, x='country', y='mean_ghg', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
+        sns.boxplot(ax=axs[0], data=plot_data, x='country', y='mean_ghg', fill=False, showfliers=False, linewidth=0)
         axs[0].set_ylabel('Footprint (ktCO\N{SUBSCRIPT TWO}e)', fontsize=fs); 
         axs[0].set_yscale('log')
         
         sns.scatterplot(ax=axs[1], data=plot_data, x='country', y='pct_im', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
+        sns.boxplot(ax=axs[1], data=plot_data, x='country', y='pct_im', fill=False, showfliers=False, linewidth=0)
         axs[1].tick_params(axis='y', labelsize=fs)
         axs[1].set_ylabel('Emisions imported (%)', fontsize=fs); 
         
@@ -128,7 +130,7 @@ for level in levels:
         
         # Histogram
         
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 15), sharey=True, sharex=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 18), sharey=True, sharex=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -159,7 +161,7 @@ for level in levels:
         
         # Histogram
         
-        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 15), sharex=True, sharey=True)
+        fig, axs = plt.subplots(nrows=len(data_comb), ncols=2, figsize=(8, 18), sharex=True, sharey=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             for r in range(len(data_comb)):
@@ -174,7 +176,7 @@ for level in levels:
             #axs[r, c].set_xticklabels(x_labels, fontsize=fs); 
             axs[r, c].tick_params(axis='x', labelsize=fs)
             axs[0, c].set_title(item, fontsize=fs)
-            axs[r, c].set_xlabel("Annual Direction\nSimilarity (%)", fontsize=fs)
+            axs[r, c].set_xlabel("Year-on-year Directional\nSimilarity (%)", fontsize=fs)
         fig.tight_layout()
         plt.savefig(plot_filepath + 'histplot_similarity_bydata_direction_GHG_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show() 
@@ -239,15 +241,12 @@ for level in levels:
         fig, axs = plt.subplots(nrows=2, figsize=(15, 10), sharex=True)
         for r in range(2):
             item = ['Total', 'Imports'][r]
-            plot_data = reg_results[item].drop('reg_validation_pct', axis=1)
-            plot_data.loc[(plot_data['max'] <= same_direction_pct_cutoff) & (plot_data['min'] >= same_direction_pct_cutoff * -1), 'Same direction'] = True
-            plot_data = plot_data.loc[country_order].set_index('Same direction', append=True).drop(['max', 'min'], axis=1)\
-                .stack().reset_index().rename(columns={0:'Average pct change', 'level_2':'Data'})
-            plot_data['Same direction:'] = pd.Categorical(plot_data['Same direction'], categories=[True, False], ordered=True)
+            plot_data = reg_results['percent'][item]
+            plot_data = plot_data.loc[country_order].stack().reset_index().rename(columns={0:'Annual change', 'level_1':'Data', 'ds':'Data'})
             plot_data['Country'] = '                    ' + plot_data['country']
-            plot_data['Data:'] = plot_data['Data']
             
-            sns.scatterplot(ax=axs[r], data=plot_data, x='country', y='Average pct change', style='Data:', hue='Same direction:', s=scatter_size, palette=pal, markers=marker_list)
+            sns.scatterplot(ax=axs[r], data=plot_data, x='country', y='Annual change', hue='Data', style='Data', s=scatter_size, palette=pal, markers=marker_list)
+            sns.boxplot(ax=axs[r], data=plot_data, x='country', y='Annual change', fill=False, color='k', showfliers=False, linewidth=1)
         
         axs[0].legend().remove()
         axs[1].legend(loc='lower center', columnspacing=0.5, bbox_to_anchor=(0.5, -0.25), fontsize=fs, ncol=8, markerscale=2)
@@ -255,9 +254,9 @@ for level in levels:
         for i in range(2):
             axs[i].tick_params(axis='y', labelsize=fs)
             axs[i].set_xlabel('', fontsize=fs)
-            axs[i].set_ylabel('Average yearly\nchange (%)', fontsize=fs); 
-            axs[i].axhline(same_direction_pct_cutoff,  c='k', linestyle='--'); 
-            axs[i].axhline(same_direction_pct_cutoff *-1, c='k', linestyle='--'); 
+            axs[i].set_ylabel('Estimated Annual Change (%)', fontsize=fs); 
+            #axs[i].axhline(same_direction_pct_cutoff,  c='k', linestyle='--', linewidth=0.75); 
+            #axs[i].axhline(same_direction_pct_cutoff *-1, c='k', linestyle='--', linewidth=0.75); 
             axs[i].axhline(0, c='k');
             for c in range(len(plot_data['country'].unique())-1):
                 axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
@@ -271,8 +270,16 @@ for level in levels:
         fig.tight_layout()
         plt.savefig(plot_filepath + 'scatterplot_overview_regresults_GHG_' + order_var + '_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
+            
         
-        
+        reg_output_values = pd.DataFrame()
+        for r in range(2):
+            item = ['Total', 'Imports'][r]
+            temp = reg_results['values'][item]
+            temp['item'] = item
+            reg_output_values = reg_output_values.append(temp)
+            
+        reg_output_values = reg_output_values.set_index('item', append=True).unstack().loc[country_order]
         
         #############################
         ## Longitudinal footprints ##

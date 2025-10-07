@@ -296,6 +296,7 @@ for item in ['Total', 'Imports']:
     
 
 regression_results = {}; regression_validation = {}
+regression_results['values'] = {}; regression_results['percent'] = {}
 for item in ['Total', 'Imports']:
     reg_check = pd.DataFrame()
     # Sense check with individual years removed
@@ -325,26 +326,19 @@ for item in ['Total', 'Imports']:
                 reg_check = reg_check.append(new)
     
     regression_validation[item] = reg_check
-    
-    reg_check2 = reg_check.groupby(['country', 'year']).describe()['coef'][['min', 'max']]
-    reg_check2['Same direction'] = 1
-    reg_check2.loc[(reg_check2['max'] > 0) & (reg_check2['min'] < 0), 'Same direction'] = 0
-    reg_check2 = reg_check2[['Same direction']].unstack()['Same direction']
-    reg_check2['reg_validation_pct'] = np.abs(reg_check2[0] - reg_check2[years].mean(1)) * 100
-    
+   
     # All years
     reg_results = reg_check.loc[reg_check['year'] == 0][['ds', 'country', 'coef']]
     reg_results = reg_results.set_index(['country', 'ds']).unstack().droplevel(axis=1, level=0)
     
     reg_result2 = cp.copy(reg_results)
     reg_result2['mean_ghg'] = summary.reset_index('country').groupby('country').mean().mean(1)
-    reg_result2 = reg_result2.apply(lambda x: x/reg_result2['mean_ghg'] *100).drop('mean_ghg', axis=1)
+    for col in reg_result2.drop('mean_ghg', axis=1).columns:
+        reg_result2[col] = reg_result2[col]/reg_result2['mean_ghg'] *100
+    reg_result2 = reg_result2.drop('mean_ghg', axis=1)
     
-    temp = reg_result2.T.describe().T[['max', 'min']]
-    temp['Same direction'] = True
-    temp.loc[(temp['max'] > 0) & (temp['min'] < 0), 'Same direction'] = False
-    
-    regression_results[item] = reg_result2.join(temp).join(reg_check2[['reg_validation_pct']])
+    regression_results['values'][item] = reg_results
+    regression_results['percent'][item] = reg_result2
 
 # save
 pickle.dump(regression_results, open(outputs_filepath + 'regression_country_industry_agg_after.p', 'wb'))
