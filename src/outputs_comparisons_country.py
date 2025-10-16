@@ -33,6 +33,7 @@ levels = ['industry']#, 'products']
 
 econ_10 =  {'USA', 'China', 'Germany', 'Japan', 'India', 'UK', 'France', 'Italy', 'Canada', 'Brazil'}
 
+
 for level in levels:
     for agg_var in agg_vars:  
         all_plot_data = {}
@@ -290,7 +291,7 @@ for level in levels:
             plot_data['Country'] = '                    ' + plot_data['country']
             
             sns.scatterplot(ax=axs[r], data=plot_data, x='country', y='Annual change', hue='Data', style='Data', s=scatter_size, palette=pal, markers=marker_list)
-            sns.boxplot(ax=axs[r], data=plot_data, x='country', y='Annual change', fill=False, color='k', showfliers=False, linewidth=1)
+            sns.boxplot(ax=axs[r], data=plot_data, x='country', y='Annual change', fill=False, color='k', showfliers=False, linewidth=0)
         
         axs[0].legend().remove()
         axs[1].legend(loc='lower center', columnspacing=0.5, bbox_to_anchor=(0.5, -0.25), fontsize=fs, ncol=8, markerscale=2)
@@ -338,8 +339,50 @@ for level in levels:
         ## Longitudinal footprints ##
         #############################
         
-        '''
-        fig, axs = plt.subplots(nrows=len(country_order), ncols=2, figsize=(10, 120))
+        country_list = ['Luxembourg', 'Malta', 'Ireland']
+        
+        fig, axs = plt.subplots(nrows=len(country_list), ncols=2, figsize=(13, 10), sharex=True)
+        for c in range(2):
+            item = ['Total', 'Imports'][c]
+            temp = summary_ghg[item].loc[country_list].unstack('year').stack(level=0)
+            #temp = temp.apply(lambda x: (x/temp.mean(1)*100)-100).unstack(level=1).stack(level=0)
+            temp = temp.apply(lambda x: (x/temp[2010]*100)).unstack(level=1).stack(level=0)
+            
+            for r in range(len(country_list)):
+                country = country_list[r]
+                plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tghg'})
+                sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tghg', hue='Datasets')
+                axs[r, c].set_title(country + ' - ' + item)
+                axs[r, c].set_ylabel('Percentage change (2010=100%)')
+                axs[r, c].axhline(100, c='k')
+                
+                if r == len(country_list)-1 and c == 1:
+                    axs[r, c].legend(loc='lower center', columnspacing=0.5, bbox_to_anchor=(-0.1, -0.4), ncol=5)
+                else:
+                    axs[r, c].legend().remove()
+                    
+        plt.savefig(plot_filepath + 'Lineplot_ghg_different_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.show()
+        
+        
+        fig, axs = plt.subplots(nrows=len(country_list), ncols=2, figsize=(13, 10), sharex=True)
+        for c in range(2):
+            item = ['Total', 'Imports'][c]
+            temp = summary_ghg[item].loc[country_list]
+            
+            for r in range(len(country_list)):
+                country = country_list[r]
+                plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tghg'})
+                sns.lmplot(data=plot_data, x='year', y='tghg', hue='Datasets', legend=False)
+                plt.title(country + ' - ' + item, fontsize=fs)
+                plt.ylabel('Footprint (ktCO\N{SUBSCRIPT TWO}e)')
+                
+                plt.legend(loc='lower left', columnspacing=0.5, bbox_to_anchor=(-0.25, -0.2), ncol=5)
+                plt.savefig(plot_filepath + 'lmplot_ghg_different_' + country + '_' + item + '_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
+                plt.show()
+                
+        
+        fig, axs = plt.subplots(nrows=len(country_order), ncols=2, figsize=(10, 120), sharex=True)
         for c in range(2):
             item = ['Total', 'Imports'][c]
             temp = summary_ghg[item]
@@ -349,9 +392,15 @@ for level in levels:
                 plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tghg'})
                 sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tghg', hue='Datasets', legend=False)
                 axs[r, c].set_title(country + ' - ' + item, fontsize=fs)
+                axs[r, c].set_ylabel('ktCO\N{SUBSCRIPT TWO}e')
+                
+                if r == len(country_order)-1 and c == 1:
+                    axs[r, c].legend(loc='lower center', columnspacing=0.5, bbox_to_anchor=(-0.1, -0.4), ncol=5)
+                else:
+                    axs[r, c].legend().remove()
+                    
         plt.savefig(plot_filepath + 'Lineplot_ghg_all_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
         plt.show()
-        '''
         
         
         ####################
