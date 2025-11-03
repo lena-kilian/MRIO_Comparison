@@ -278,6 +278,7 @@ for item in ['Total', 'Imports']:
     # Total emissions
     # test which fit is best linear, quadratic, cubic
     reg_fit = pd.DataFrame()
+    reg_fit_r2 = pd.DataFrame()
     for country in summary_ghg[item].index.levels[0]:
         for ds in datasets:
         
@@ -308,11 +309,34 @@ for item in ['Total', 'Imports']:
             new['aic3'] = model3.aic
             
             reg_fit = reg_fit.append(new)
+            
+            new_r2 = pd.DataFrame(index=[0])
+            new_r2['ds'] = ds
+            new_r2['country'] = country
+            new_r2['r2_1'] = model1.rsquared
+            new_r2['r2_2'] = model2.rsquared
+            new_r2['r2_3'] = model3.rsquared
+            
+            new_r2['adj_r2_1'] = model1.rsquared_adj
+            new_r2['adj_r2_2'] = model2.rsquared_adj
+            new_r2['adj_r2_3'] = model3.rsquared_adj
+            
+            reg_fit_r2 = reg_fit_r2.append(new_r2)
+            
     reg_fit = reg_fit.set_index(['country', 'ds'])
+    reg_fit_r2 = reg_fit_r2.set_index(['country', 'ds'])
+    
     reg_fit['aic_prop2'] = reg_fit['aic2'] / reg_fit['aic1']
     reg_fit['aic_prop3'] = reg_fit['aic3'] / reg_fit['aic1']
     
     reg_fit.to_csv(outputs_filepath + 'regression_country_linearity_AIC_' + item + '_industry.csv')
+    
+    reg_fit_r2.to_csv(outputs_filepath + 'regression_country_linearity_r2_' + item + '_industry.csv')
+    
+    
+    reg_fit.unstack('ds').to_csv('C:/Users/geolki/OneDrive - University of Leeds/Leeds onedrive/Postdoc/ESCoE/MRIO Comparison Paper/Outputs/regression_country_linearity_AIC_' + item + '_industry.csv')
+    
+    reg_fit_r2.unstack('ds').to_csv('C:/Users/geolki/OneDrive - University of Leeds/Leeds onedrive/Postdoc/ESCoE/MRIO Comparison Paper/Outputs/regression_country_linearity_r2_' + item + '_industry.csv')
     
 
 regression_results = {}; regression_validation = {}

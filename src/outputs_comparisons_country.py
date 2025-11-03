@@ -121,6 +121,68 @@ for level in levels:
         
         all_plot_data['fig. 1'] = plot_data
         
+        
+        #################################
+        ## Total & Imported difference ##
+        #################################
+        
+        # global imports
+        ghg_diff = summary_ghg['Total']
+        ghg_diff['type'] = 'Total'
+        
+        temp = summary_ghg['Imports']
+        temp['type'] = 'Imports'
+        
+        ghg_diff = ghg_diff.append(temp)
+        
+        ghg_diff = ghg_diff.groupby(['country', 'type']).mean()
+        ghg_diff['mean'] = ghg_diff.mean(1)
+        ghg_diff = ghg_diff.apply(lambda x: (x-ghg_diff['mean'])/ghg_diff['mean']*100).drop('mean', axis=1).stack().reset_index()
+        ghg_diff = ghg_diff.rename(columns={0:'percent_diff', 'level_2':'dataset'})
+        
+        ghg_diff['country_cat'] = pd.Categorical(ghg_diff['country'], categories=country_order, ordered=True)
+        ghg_diff['dataset_cat'] = pd.Categorical(ghg_diff['dataset'], categories=datasets, ordered=True)
+            
+        ghg_diff['Country'] = '                     ' + ghg_diff['country']
+        
+        ghg_diff = ghg_diff.sort_values(['country_cat', 'dataset_cat'])
+        
+        # Scatterplot
+        fig, axs = plt.subplots(nrows=2, figsize=(15, 10), sharex=True)
+        
+        for i in range(2):
+            item = ['Total', 'Imports'][i]
+            
+            plot_data = ghg_diff.loc[ghg_diff['type']==item]
+        
+            sns.scatterplot(ax=axs[i], data=plot_data, x='country', y='percent_diff', hue='dataset', s=scatter_size, palette=pal, style='dataset', markers=marker_list)
+            sns.boxplot(ax=axs[i], data=plot_data, x='country', y='percent_diff', fill=False, showfliers=False, linewidth=0)
+            axs[i].set_ylabel('Difference to mean (%)', fontsize=fs); 
+            
+            axs[i].tick_params(axis='y', labelsize=fs)
+            axs[i].set_xlabel('', fontsize=fs)
+            for c in range(len(plot_data['country'].unique())-1):
+                axs[i].axvline(c+0.5, c=c_vlines, linestyle=':')
+                
+            axs[i].axhline(0, c='k')
+        
+        #axs[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), fontsize=fs, ncol=len(datasets), markerscale=2)
+        axs[0].legend().remove()
+        axs[1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.25), fontsize=fs, ncol=len(datasets), markerscale=2)
+                         
+        axs[1].set_xticklabels(plot_data['Country'].unique(), rotation=90, va='center', fontsize=fs)
+        axs[1].xaxis.set_ticks_position('top') # the rest is the same
+        for i in range(len(plot_data['country'].unique())):
+            if plot_data['country'].unique()[i] in econ_10:
+                plt.setp(axs[1].get_xticklabels()[i], weight='bold')
+
+        fig.tight_layout()
+        plt.savefig(plot_filepath + 'scatterplot_overview_diff_bycountry_GHG_' + order_var + '_' + level + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
+        plt.show()
+        
+        all_plot_data['fig. 1a'] = plot_data
+        
+        
         ###################################
         ## Change in trend - RMSE / Mean ##
         ###################################
@@ -382,25 +444,35 @@ for level in levels:
                 plt.show()
                 
         
-        fig, axs = plt.subplots(nrows=len(country_order), ncols=2, figsize=(10, 120), sharex=True)
-        for c in range(2):
-            item = ['Total', 'Imports'][c]
-            temp = summary_ghg[item]
+        for i in range(0, len(country_order), 10):
+            country_list = country_order[i:i+9]
             
-            for r in range(len(country_order)):
-                country = country_order[r]
-                plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tghg'})
-                sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tghg', hue='Datasets', legend=False)
-                axs[r, c].set_title(country + ' - ' + item, fontsize=fs)
-                axs[r, c].set_ylabel('ktCO\N{SUBSCRIPT TWO}e')
+            n = len(country_list)
+            fig, axs = plt.subplots(nrows=n, ncols=2, figsize=(15, 2.7*n), sharex=True)
+            
+            for c in range(2):
+                item = ['Total', 'Imports'][c]
+                temp = summary_ghg[item]
                 
-                if r == len(country_order)-1 and c == 1:
-                    axs[r, c].legend(loc='lower center', columnspacing=0.5, bbox_to_anchor=(-0.1, -0.4), ncol=5)
-                else:
-                    axs[r, c].legend().remove()
+                for r in range(n):
+                    country = country_list[r]
+                    plot_data = temp.loc[country].stack().reset_index().rename(columns={'level_1':'Datasets', 0:'tghg'})
+                    sns.lineplot(ax=axs[r, c], data=plot_data, x='year', y='tghg', hue='Datasets')
+                    axs[r, c].set_title(country + ' - ' + item, fontsize=fs*0.75)
+                    axs[r, 0].set_ylabel('ktCO\N{SUBSCRIPT TWO}e')
+                    axs[r, 1].set_ylabel('')
                     
-        plt.savefig(plot_filepath + 'Lineplot_ghg_all_' + order_var + '_' + agg_var + '.png', dpi=200, bbox_inches='tight')
-        plt.show()
+                    if r == len(country_list)-1 and c == 1:
+                        axs[r, c].legend(loc='lower center', columnspacing=0.5, bbox_to_anchor=(-0.1, -0.4), ncol=5)
+                    else:
+                        axs[r, c].legend().remove()
+                        
+                    print(r, c)
+                
+                axs[r, c].set_xlabel('Year')
+                        
+            plt.savefig(plot_filepath + 'Lineplot_ghg_all_' + order_var + '_' + agg_var + '_' + str(i) + '.png', dpi=200, bbox_inches='tight')
+            plt.show()
         
         
         ####################
